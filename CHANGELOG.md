@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.2
+
+CI: одна проверка Test (сборка и тесты на Linux с tmux) вместо унаследованных от Claude Squad.
+
 ## 1.26.1 — первая публичная версия
 
 Форк [Claude Squad](https://github.com/smtg-ai/claude-squad) (AGPL-3.0) для работы с многими

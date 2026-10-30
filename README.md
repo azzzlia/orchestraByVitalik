@@ -11,7 +11,7 @@
 Остальное (tmux, Go, инструменты разработчика Apple) установщик поставит или подскажет сам.
 
 ```bash
-git clone https://github.com/<you>/orchestraByVitalik ~/claude-squad-qa && cd ~/claude-squad-qa
+git clone https://github.com/azzzlia/orchestraByVitalik ~/claude-squad-qa && cd ~/claude-squad-qa
 ./install-mac.sh
 ```
 
