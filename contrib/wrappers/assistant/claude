@@ -1,0 +1,4 @@
+#!/bin/sh
+# Claude Squad: помощник пользователя. Видит devRepo и папку Squad (журнал дирижёра).
+# Sonnet — чтобы вопросы о статусах не съедали лимит; поменяй на opus для сложных вопросов.
+exec /opt/homebrew/bin/claude --model sonnet --add-dir /Users/USERNAME/devRepo --add-dir /Users/USERNAME/.claude-squad "$@"

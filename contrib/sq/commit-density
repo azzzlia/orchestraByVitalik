@@ -1,0 +1,46 @@
+#!/bin/bash
+# commit-density — плотность за сегодня: сколько часов было хотя бы с одним
+# твоим коммитом (0–24). Печатает «N now=0|1»: N — часы (цель — 6), now — был ли
+# коммит в текущем часу (Squad по нему предупреждает о пустом часе).
+# COMMIT_DENSITY_DAYTIME=1 — считать только 07:00–20:00, как в метрике компании.
+# COMMIT_DENSITY_DAY=ГГГГ-ММ-ДД — посчитать другой день (для утреннего отчёта).
+# В конце строки — hours=08,10,… : часы с коммитами.
+# Репы ищутся в ~/devRepo (можно задать COMMIT_DENSITY_REPOS="папка1 папка2").
+# Worktree'ы (включая сессии Squad) учитываются через основную репу.
+
+[ -f "$HOME/.claude-squad/sq.env" ] && . "$HOME/.claude-squad/sq.env"
+ROOTS="${COMMIT_DENSITY_REPOS:-${SQ_REPOS:-$HOME/devRepo}}"
+EMAIL="$(git config --global user.email)"
+TODAY="${COMMIT_DENSITY_DAY:-$(date +%Y-%m-%d)}"
+
+repos=""
+for root in $ROOTS; do
+  [ -d "$root" ] || continue
+  while IFS= read -r g; do
+    d="$(dirname "$g")"
+    common="$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || continue
+    repos="$repos
+$common"
+  done < <(find "$root" -maxdepth 3 -name .git 2>/dev/null)
+done
+
+# Дата коммита (%cd), как в метрике компании. Автор — глобальная почта и почта,
+# заданная в самой репе (если она другая).
+hours="$(printf '%s\n' "$repos" | sed '/^$/d' | sort -u | while IFS= read -r gitdir; do
+  local_email="$(git --git-dir="$gitdir" config --local user.email 2>/dev/null)"
+  authors=()
+  [ -n "$EMAIL" ] && authors+=(--author="$EMAIL")
+  [ -n "$local_email" ] && [ "$local_email" != "$EMAIL" ] && authors+=(--author="$local_email")
+  git --git-dir="$gitdir" log --all --since="$TODAY 00:00" --until="$TODAY 23:59:59" "${authors[@]}" \
+    --format=%cd --date=format-local:'%Y-%m-%d %H' 2>/dev/null
+done | awk -v day="$TODAY" '$1 == day { print $2 }' | sort -u)"
+
+if [ "${COMMIT_DENSITY_DAYTIME:-0}" = "1" ]; then
+  n="$(printf '%s\n' "$hours" | awk '$1 >= "07" && $1 <= "19"' | grep -c .)"
+else
+  n="$(printf '%s\n' "$hours" | grep -c .)"
+fi
+now=0
+printf '%s\n' "$hours" | grep -qx "$(date +%H)" && now=1
+[ "$TODAY" = "$(date +%Y-%m-%d)" ] || now=0
+echo "$n now=$now hours=$(printf '%s\n' "$hours" | grep . | paste -sd, -)"

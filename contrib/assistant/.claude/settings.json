@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/USERNAME/bin/cs ctl list:*)",
+      "Bash(/Users/USERNAME/bin/cs ctl read:*)",
+      "Bash(cs ctl list:*)",
+      "Bash(cs ctl read:*)",
+      "Bash(/Users/USERNAME/bin/cs ctl capacity)",
+      "Bash(cs ctl capacity)",
+      "Bash(/Users/USERNAME/bin/cs usage)",
+      "Bash(/Users/USERNAME/bin/cs stats)",
+      "Bash(/Users/USERNAME/bin/cs cleanup)",
+      "Read(/Users/USERNAME/devRepo/**)",
+      "Read(/Users/USERNAME/.claude-squad/**)",
+      "Edit(/Users/USERNAME/.claude-squad/conductor/rules.md)"
+    ]
+  }
+}

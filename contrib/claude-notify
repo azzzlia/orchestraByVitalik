@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+# Уведомления Claude Code для macOS.
+# В заголовке: цвет и номер сессии Claude Squad (если Claude запущен в Squad),
+# иначе — ветка/папка. Разный звук: «готово» и «нужно разрешение».
+import json, os, re, shutil, subprocess, sys, time, traceback
+
+LOG = os.path.expanduser("~/.claude-squad/notify.log")
+def log(msg):
+    try:
+        with open(LOG, "a") as f:
+            f.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except Exception:
+        pass
+
+def _excepthook(t, v, tb):
+    log("ОШИБКА: " + "".join(traceback.format_exception(t, v, tb)).replace("\n", " | "))
+sys.excepthook = _excepthook
+
+ev = sys.argv[1] if len(sys.argv) > 1 else ""
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+cwd = data.get("cwd") or os.getcwd()
+log("запуск: %s cwd=%s" % (ev, cwd))
+
+COLOR_EMOJI = {"red": "🔴", "orange": "🟠", "yellow": "🟡", "green": "🟢",
+               "cyan": "🔷", "blue": "🔵", "purple": "🟣", "pink": "🩷"}
+
+def fnv32a(b):
+    h = 0x811C9DC5
+    for x in b:
+        h = ((h ^ x) * 0x01000193) & 0xFFFFFFFF
+    return h
+
+def squad_tmux_name(title):
+    # Тот же алгоритм, что в Claude Squad (toClaudeSquadTmuxName).
+    s = re.sub(r"[ \t\n\f\r\v]+", "", title).replace(".", "_")
+    if all(33 <= ord(c) < 128 and c != ":" for c in s):
+        return "claudesquad_" + s
+    kept = "".join(c for c in s if ord(c) < 128 and (c in "_-" or c.isalnum()))
+    return "claudesquad_%s_%08x" % (kept, fnv32a(s.encode("utf-8")))
+
+def squad_session():
+    """(номер, сессия) из Claude Squad, если этот Claude запущен в его tmux."""
+    if not os.environ.get("TMUX"):
+        return None
+    try:
+        name = subprocess.run([shutil.which("tmux") or "/opt/homebrew/bin/tmux", "display-message", "-p", "#S"],
+                              capture_output=True, text=True, timeout=3).stdout.strip()
+        state = json.load(open(os.path.expanduser("~/.claude-squad/state.json")))
+    except Exception:
+        return None
+    for idx, inst in enumerate(state.get("instances", []), 1):
+        if squad_tmux_name(inst.get("title", "")) == name:
+            return inst.get("number") or idx, inst
+    return None
+
+def branch_or_folder():
+    try:
+        b = subprocess.run(["git", "-C", cwd, "branch", "--show-current"],
+                           capture_output=True, text=True, timeout=3).stdout.strip()
+    except Exception:
+        b = ""
+    return b or re.sub(r"_[0-9a-f]{8,}$", "", os.path.basename(cwd))
+
+def remember_conversation():
+    """Запоминает id разговора Claude для сессии Squad: после сна Squad
+    поднимет именно этот разговор."""
+    sid = str(data.get("session_id") or "")
+    if not os.environ.get("TMUX") or not re.fullmatch(r"[0-9A-Fa-f-]{8,64}", sid):
+        return
+    try:
+        name = subprocess.run([shutil.which("tmux") or "/opt/homebrew/bin/tmux", "display-message", "-p", "#S"],
+                              capture_output=True, text=True, timeout=3).stdout.strip()
+        if not name.startswith("claudesquad_"):
+            return
+        d = os.path.expanduser("~/.claude-squad/claude-sessions")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, name), "w") as f:
+            f.write(sid + "\n")
+    except Exception:
+        pass
+
+remember_conversation()
+found = squad_session()
+if found:
+    idx, inst = found
+    title = "%s #%d %s" % (COLOR_EMOJI.get(inst.get("color", ""), "⚪"), idx, inst.get("title", ""))
+    subtitle = inst.get("branch") or branch_or_folder()
+else:
+    title = "Claude: " + branch_or_folder()
+    subtitle = ""
+
+def conductor_active():
+    """Дирижёр есть и Squad жив (status.json свежий): готовых воркеров разбирает он."""
+    try:
+        import time
+        p = os.path.expanduser("~/.claude-squad/status.json")
+        if time.time() - os.path.getmtime(p) > 120:
+            return False
+        return any(s.get("conductor") for s in json.load(open(p)).get("sessions", []))
+    except Exception:
+        return False
+
+def last_assistant_text():
+    """Текст последнего ответа агента из transcript (пусто, если не прочитать)."""
+    path = data.get("transcript_path") or ""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 200000))
+            lines = f.read().decode("utf-8", "ignore").splitlines()
+        for line in reversed(lines):
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if rec.get("type") != "assistant":
+                continue
+            parts = rec.get("message", {}).get("content", [])
+            text = " ".join(p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "text")
+            if text.strip():
+                return text
+    except Exception:
+        pass
+    return ""
+
+log("событие=%s tmux=%s сессия=%s" % (ev, bool(os.environ.get("TMUX")), inst.get("title") if found else "-"))
+
+# В Squad уведомляют только дирижёр и помощник: воркерами управляет дирижёр,
+# и про их запросы разрешений он сам пишет «⚠ НУЖЕН ТЫ».
+if found and not inst.get("conductor") and not inst.get("assistant"):
+    log("  воркер — без уведомления")
+    sys.exit(0)
+
+if ev == "stop":
+    msg, sound = "Готово, ждёт тебя", "Glass"
+    if found and inst.get("conductor"):
+        text = last_assistant_text()
+        if text and "НУЖЕН ТЫ" not in text:
+            msg, sound = "Дирижёр ответил", ""   # без звука: тебя он не зовёт
+        elif text:
+            msg = "⚠ Дирижёр: нужен ты"
+    elif found and inst.get("assistant"):
+        text = last_assistant_text()
+        if text and "НУЖЕН ТЫ" in text:
+            msg, sound = "⚠ Помощник: нужен ты", "Funk"
+        else:
+            msg = "Помощник ответил"
+else:
+    msg, sound = (data.get("message") or "Нужно твоё разрешение"), "Funk"
+
+# Клик по уведомлению открывает эту сессию в Squad (нужен brew install terminal-notifier).
+notifier = shutil.which("terminal-notifier") or next(
+    (p for p in ("/opt/homebrew/bin/terminal-notifier", "/usr/local/bin/terminal-notifier") if os.path.exists(p)), None)
+cs = os.path.expanduser("~/bin/cs")
+if notifier and found and os.path.exists(cs):
+    import shlex
+    title_q = shlex.quote(inst.get("title", ""))
+    args = [notifier, "-title", title, "-message", msg] + (["-sound", sound] if sound else []) + [
+            "-group", "squad-" + squad_tmux_name(inst.get("title", "")),  # новое заменяет старое той же сессии
+            "-execute", "%s ctl focus %s" % (shlex.quote(cs), title_q)]
+    if subtitle:
+        args[3:3] = ["-subtitle", subtitle]
+    r = subprocess.run(args, capture_output=True, text=True)
+    log("  terminal-notifier: %s код=%s %s" % (msg, r.returncode, (r.stderr or "").strip()[:200]))
+    sys.exit(0)
+
+esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
+script = 'display notification "%s" with title "%s"' % (esc(msg), esc(title))
+if subtitle:
+    script += ' subtitle "%s"' % esc(subtitle)
+if sound:
+    script += ' sound name "%s"' % sound
+r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+log("  osascript: %s код=%s %s" % (msg, r.returncode, (r.stderr or "").strip()[:200]))

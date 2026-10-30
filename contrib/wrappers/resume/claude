@@ -1,0 +1,5 @@
+#!/bin/sh
+# Claude Squad: в папке несколько разговоров. Если Squad знает точный разговор
+# (--resume <id>), открываем его, иначе показываем список.
+case " $* " in *" --resume "*) exec /opt/homebrew/bin/claude "$@";; esac
+exec /opt/homebrew/bin/claude --resume "$@"

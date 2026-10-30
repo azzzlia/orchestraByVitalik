@@ -1,0 +1,290 @@
+#!/bin/bash
+# sq — запускает Claude Squad и перезапускает его по сигналу обновления.
+#
+# Сигнал: файл ~/.claude-squad/update/restart. Когда он появляется, sq
+# закрывает Squad (сессии в tmux продолжают работать), обновляет форк
+# и запускает Squad заново в той же папке.
+#
+# Что делает обновление:
+#   1. git pull в ~/claude-squad-qa (и *.bundle из папки обновлений, если есть) + git push
+#   2. ставит ~/.claude-squad/update/cs, если он там лежит; иначе пересобирает, если есть Go
+#   3. копирует CLAUDE.md дирижёра
+# Лог: ~/.claude-squad/update/last-update.log
+
+# Свои пути (их пишет install.sh): SQ_REPO — эта репа, SQ_DIR — папка, где работают сессии.
+[ -f "$HOME/.claude-squad/sq.env" ] && . "$HOME/.claude-squad/sq.env"
+REPO="${SQ_REPO:-$HOME/claude-squad-qa}"
+WORKDIR="${SQ_DIR:-$HOME/devRepo/modules}"
+UPD="$HOME/.claude-squad/update"
+SIGNAL="$UPD/restart"
+LOG="$UPD/last-update.log"
+CS="$HOME/bin/cs"
+
+mkdir -p "$UPD"
+rm -f "$SIGNAL"
+
+notify() {
+  osascript -e "display notification \"$2\" with title \"$1\" sound name \"Funk\"" >/dev/null 2>&1
+}
+
+# Git без интерактива: при упавшем VPN или запросе пароля не висим, а падаем с ошибкой.
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15"
+GITNET=(-c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30)
+
+# syntax_ok FILE: bash- или python-скрипт без синтаксических ошибок.
+syntax_ok() {
+  if head -1 "$1" | grep -q python; then
+    python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$1" 2>/dev/null
+  else
+    bash -n "$1" 2>/dev/null
+  fi
+}
+
+apply_update() {
+  UPDATE_PROBLEM=""
+  {
+    echo "== $(date '+%F %T') обновление"
+    DIRTY=""
+    [ -d "$REPO/.git" ] && DIRTY="$(cd "$REPO" && git status --porcelain --untracked-files=all | grep -E '^( ?[MADRCU]|[MADRCU] |\?\? .*(\.go|go\.mod|go\.sum)$)')"
+    if [ -n "$DIRTY" ]; then
+      # Твои несохранённые правки в репе: поверх них обновление не встанет (git откажет),
+      # а сборка собрала бы их молча. Ничего не трогаем и говорим об этом.
+      echo "НЕ ОБНОВЛЕНО: в $REPO есть несохранённые правки:"
+      echo "$DIRTY"
+      echo "Закоммить или убери их (git stash), потом снова подай сигнал. Пакеты обновлений остаются в $UPD."
+      notify "orchestraByVitalik: обновление не встало" "В ~/claude-squad-qa несохранённые правки — подробности в last-update.log"
+      echo "$DIRTY" > "$UPD/.dirty"
+    fi
+    if [ -d "$REPO/.git" ] && [ -z "$DIRTY" ]; then
+      (cd "$REPO" && git "${GITNET[@]}" pull --ff-only </dev/null) 2>&1 || echo "git pull: не вышло"
+      for b in "$UPD"/*.bundle; do
+        [ -f "$b" ] || continue
+        if (cd "$REPO" && git pull --ff-only "$b" main) 2>&1; then
+          rm -f "$b"
+        else
+          echo "bundle $b: не применился"
+        fi
+      done
+    fi
+    BUILT=""; TESTED=""
+    if [ -n "$DIRTY" ]; then
+      echo "сборка пропущена: остаётся текущий cs"
+    elif [ -f "$UPD/cs" ]; then
+      chmod +x "$UPD/cs"
+      xattr -c "$UPD/cs" 2>/dev/null
+      # Готовый бинарник не из репы: репу не пушим и файлы из неё не раскладываем.
+      mv -f "$UPD/cs" "$CS" && echo "cs обновлён из папки обновлений (готовый бинарник лежал в $UPD)"
+    elif command -v go >/dev/null 2>&1 && [ -d "$REPO" ]; then
+      if (cd "$REPO" && go build -o "$CS.new" . && mv -f "$CS.new" "$CS") 2>&1; then
+        BUILT=1
+        echo "cs пересобран ($(cd "$REPO" && git describe --tags --always --dirty 2>/dev/null))"
+        # Тесты — только в лог: по нему видно, что сломалось, сборка уже стоит.
+        # Тесты — в песочнице: своя домашняя папка и свой сервер tmux, чтобы ни один
+        # тест не тронул твои настоящие ~/.claude-squad и сессии.
+        TH="$(mktemp -d "${TMPDIR:-/tmp}/squad-test.XXXXXX")"
+        if (cd "$REPO" && env GOENV="$(go env GOENV)" GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" GOPATH="$(go env GOPATH)" \
+              HOME="$TH" TMUX_TMPDIR="$TH" TMUX= go test ./... >"$UPD/last-test.log" 2>&1); then
+          echo "тесты: ок"
+          TESTED=1
+        else
+          echo "тесты: ПАДАЮТ, подробности в $UPD/last-test.log"
+          grep -E "^(--- FAIL|FAIL|panic)" "$UPD/last-test.log" | head -10
+        fi
+        # TMUX= обязательно: внутри фонового tmux переменная TMUX важнее TMUX_TMPDIR, и
+        # kill-server без неё убил бы настоящий сервер — Squad и все сессии.
+        TMUX= TMUX_TMPDIR="$TH" tmux kill-server 2>/dev/null
+        rm -rf "$TH"
+      else
+        echo "сборка cs: НЕ ВЫШЛО, остаётся старый"
+        notify "orchestraByVitalik: сборка не вышла" "Остаётся старый cs — подробности в last-update.log"
+      fi
+    fi
+    # Пушим только то, что собралось и прошло тесты.
+    if [ -n "$TESTED" ] && [ -d "$REPO/.git" ] && [ -z "$DIRTY" ]; then
+      if [ -n "$(cd "$REPO" && git log '@{u}..' --oneline 2>/dev/null)" ]; then
+        (cd "$REPO" && git "${GITNET[@]}" push </dev/null) 2>&1 || echo "git push: не вышло"
+      fi
+      (cd "$REPO" && git "${GITNET[@]}" push --tags -q </dev/null) 2>/dev/null
+    fi
+    # Роли дирижёра и помощника — из репы, с путями этого мака (contrib/sq/localize).
+    for role in conductor:дирижёра assistant:помощника; do
+      r="${role%%:*}"
+      if [ -n "$BUILT" ] && [ -f "$REPO/contrib/$r/CLAUDE.md" ] && [ -d "$HOME/.claude-squad/$r" ]; then
+        bash "$REPO/contrib/sq/localize" "$REPO/contrib/$r/CLAUDE.md" "$HOME/.claude-squad/$r/CLAUDE.md" && echo "CLAUDE.md ${role##*:} обновлён"
+        pf="$REPO/contrib/profiles/${PROFILE:-}/$r/profile.md"
+        [ -n "${PROFILE:-}" ] && [ -f "$pf" ] && bash "$REPO/contrib/sq/localize" "$pf" "$HOME/.claude-squad/$r/profile.md"
+      fi
+    done
+    # Обёртка, счётчик плотности и уведомления — из репы (атомарно, через mv).
+    [ -n "$BUILT" ] && for f in contrib/sq/sq:sq contrib/sq/commit-density:commit-density contrib/claude-notify:claude-notify contrib/sq/orchestra-start:orchestra-start contrib/sq/localize:localize; do
+      src="$REPO/${f%%:*}"; dst="$HOME/bin/${f##*:}"
+      if [ -f "$src" ] && ! cmp -s "$src" "$dst"; then
+        cp "$src" "$dst.new" && chmod +x "$dst.new" || continue
+        if ! syntax_ok "$dst.new"; then
+          echo "~/bin/${f##*:}: в новой версии ошибка синтаксиса — оставляю прежнюю"; rm -f "$dst.new"; continue
+        fi
+        mv -f "$dst.new" "$dst" && echo "обновлён ~/bin/${f##*:}"
+      fi
+    done
+    [ -n "$BUILT" ] && build_app
+  } 2>&1 | tee -a "$LOG"
+}
+
+# build_app собирает приложение «Оркестр» (~/Applications/Orchestra.app), когда
+# поменялись его исходники. Нужен swiftc (Command Line Tools).
+build_app() {
+  local src="$REPO/contrib/macapp" app="$HOME/Applications/Orchestra.app" tmp stamp
+  [ -f "$src/main.swift" ] || return 0
+  if ! command -v swiftc >/dev/null 2>&1; then
+    echo "приложение: нет swiftc — поставь Command Line Tools: xcode-select --install"
+    return 0
+  fi
+  stamp="$(cat "$src/main.swift" "$src/Info.plist" "$src/AppIcon.icns" "$src/AppIcon.icon/icon.json" "$src/AppIcon.icon/Assets/"* 2>/dev/null | shasum | cut -c1-16)"
+  if [ -f "$app/Contents/stamp" ] && [ "$(cat "$app/Contents/stamp")" = "$stamp" ]; then
+    return 0
+  fi
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/orchestra-app.XXXXXX")"
+  mkdir -p "$tmp/Orchestra.app/Contents/MacOS" "$tmp/Orchestra.app/Contents/Resources"
+  if swiftc -O "$src/main.swift" -o "$tmp/Orchestra.app/Contents/MacOS/Orchestra" -framework Cocoa -framework WebKit 2>&1 | tail -20; [ -x "$tmp/Orchestra.app/Contents/MacOS/Orchestra" ]; then
+    cp "$src/Info.plist" "$tmp/Orchestra.app/Contents/"
+    cp "$src/AppIcon.icns" "$tmp/Orchestra.app/Contents/Resources/" 2>/dev/null
+    # Иконка формата macOS 26 (Icon Composer): actool из Xcode собирает её в Assets.car,
+    # и Dock рисует её как у всех, без серой подложки. Без Xcode остаётся AppIcon.icns.
+    if [ -d "$src/AppIcon.icon" ] && xcrun -f actool >/dev/null 2>&1; then
+      if xcrun actool "$src/AppIcon.icon" --compile "$tmp/Orchestra.app/Contents/Resources" --platform macosx \
+           --minimum-deployment-target 11.0 --app-icon AppIcon --output-partial-info-plist "$tmp/icon.plist" >/dev/null 2>&1 \
+         && [ -f "$tmp/Orchestra.app/Contents/Resources/Assets.car" ]; then
+        /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$tmp/Orchestra.app/Contents/Info.plist" >/dev/null 2>&1
+      else
+        echo "приложение: иконка нового формата не собралась (actool) — будет старая"
+      fi
+    fi
+    echo "$stamp" > "$tmp/Orchestra.app/Contents/stamp"
+    codesign -s - --force --deep "$tmp/Orchestra.app" >/dev/null 2>&1
+    mkdir -p "$HOME/Applications"
+    rm -rf "$app.old"
+    [ -d "$app" ] && mv "$app" "$app.old"
+    if mv "$tmp/Orchestra.app" "$app"; then
+      rm -rf "$app.old"
+      # новая иконка: Dock и Finder иначе показывают старую из кеша
+      touch "$app"
+      /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app" >/dev/null 2>&1
+      echo "приложение «Оркестр» собрано: $app"
+    else
+      [ -d "$app.old" ] && mv "$app.old" "$app"
+      echo "приложение: не удалось положить в $app"
+    fi
+  else
+    echo "приложение: сборка не вышла (swiftc), подробности выше"
+  fi
+  rm -rf "$tmp"
+}
+
+# --- Пульт: готовые действия по файлу-запросу (только из этого списка) ---
+# Запрос: файл ~/.claude-squad/update/actions/<id>.req с текстом «действие [номер]».
+# Ответ: <id>.out (вывод) и <id>.done. Произвольные команды не выполняются.
+ACT="$UPD/actions"
+mkdir -p "$ACT"
+
+run_action() {
+  local name="$1" arg="$2"
+  case "$name" in
+    pull-modules)    git -C "$WORKDIR" pull --ff-only ;;
+    claude-update)   claude update ;;
+    density)         "$HOME/bin/commit-density" ;;
+    restart-session) [[ "$arg" =~ ^[0-9]+$ ]] && "$CS" ctl restart "$arg" || echo "нужен номер сессии" ;;
+    wake-session)    [[ "$arg" =~ ^[0-9]+$ ]] && "$CS" ctl wake "$arg" || echo "нужен номер сессии" ;;
+    list)            "$CS" ctl list ;;
+    tools)           for t in swiftc go tmux git codesign iconutil; do printf '%s: %s\n' "$t" "$(command -v "$t" || echo нет)"; done; sw_vers 2>/dev/null; xcode-select -p 2>&1 ;;
+    squad-log)       tail -n 300 "${TMPDIR:-/tmp}/claudesquad.log" 2>&1 | sed -E 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Ww]ebhook)[^ ]*/\1=***/g' ;;
+    *)               echo "неизвестное действие: $name (есть: pull-modules, claude-update, density, restart-session N, wake-session N, list, squad-log, tools)" ;;
+  esac
+}
+
+actions_loop() {
+  while :; do
+    for req in "$ACT"/*.req; do
+      [ -f "$req" ] || continue
+      id="${req%.req}"
+      # Сначала забираем файл (mv атомарен): второй sq, если он есть, его уже не увидит.
+      mv "$req" "$id.taken" 2>/dev/null || continue
+      read -r name arg _ < "$id.taken"
+      echo "== $(date '+%F %T') действие: $name $arg" >> "$LOG"
+      { run_action "$name" "$arg"; echo "код выхода: $?"; } > "$id.out" 2>&1
+      mv -f "$id.taken" "$id.done"
+    done
+    sleep 3
+  done
+}
+
+# install.sh собирает приложение этой же функцией.
+if [ "${1:-}" = "--build-app" ]; then build_app; exit 0; fi
+
+cd "$WORKDIR" || { echo "Нет папки $WORKDIR"; exit 1; }
+actions_loop &
+ACTIONS_PID=$!
+trap 'kill $ACTIONS_PID 2>/dev/null' EXIT
+echo "$$" > "$UPD/sq.pid"
+echo "== $(date '+%F %T') sq запущен (pid $$)" >> "$LOG"
+
+while true; do
+  # Squad запускаем с явным pid, чтобы точно знать, кого перезапускать.
+  "$CS" "$@" </dev/tty &
+  CSPID=$!
+
+  (
+    while kill -0 "$CSPID" 2>/dev/null; do
+      sleep 2
+      if [ -f "$SIGNAL" ]; then
+        echo "== $(date '+%F %T') сигнал получен, закрываю Squad (pid $CSPID)" >> "$LOG"
+        kill -TERM "$CSPID"
+        break
+      fi
+    done
+  ) &
+  WATCHER=$!
+
+  wait "$CSPID"
+  CODE=$?
+
+  kill "$WATCHER" 2>/dev/null
+  wait "$WATCHER" 2>/dev/null
+
+  if [ -f "$SIGNAL" ]; then
+    rm -f "$SIGNAL"
+    clear
+    echo "Перезапуск Squad по сигналу обновления…"
+    apply_update
+    if [ -f "$UPD/.dirty" ]; then
+      rm -f "$UPD/.dirty"
+      echo; echo "Обновление НЕ встало (несохранённые правки в репе) — запускаю прежний Squad через 10 с…"
+      sleep 10
+    else
+      sleep 1
+    fi
+    # Перезапускаем саму обёртку: новая версия sq тоже вступает в силу — если она
+    # без синтаксических ошибок; иначе остаёмся на текущей.
+    if bash -n "$HOME/bin/sq" 2>/dev/null; then
+      kill "$ACTIONS_PID" 2>/dev/null
+      exec "$HOME/bin/sq" "$@"
+    fi
+    echo "== $(date '+%F %T') новый sq с ошибкой синтаксиса — остаюсь на текущем" >> "$LOG"
+    continue
+  fi
+  # 0 — ты вышел сам; 3 — уже запущен другой Squad; 130 — Ctrl+C. Иначе Squad упал:
+  # поднимаем его снова (не больше 5 раз за 10 минут), чтобы ночью он не лежал.
+  if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 3 ] && [ "$CODE" -ne 130 ]; then
+    NOW=$(date +%s)
+    CRASHES=$(( ${CRASHES:-0} + 1 ))
+    [ $(( NOW - ${FIRST_CRASH:-0} )) -gt 600 ] && { CRASHES=1; FIRST_CRASH=$NOW; }
+    echo "== $(date '+%F %T') Squad упал (код $CODE), перезапуск $CRASHES" >> "$LOG"
+    if [ "$CRASHES" -le 5 ]; then
+      notify "orchestraByVitalik" "Squad упал (код $CODE) — перезапускаю"
+      sleep 3
+      continue
+    fi
+    notify "orchestraByVitalik" "Squad падает снова и снова — остановился, посмотри окно"
+  fi
+  exit $CODE
+done

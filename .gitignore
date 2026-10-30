@@ -1,0 +1,6 @@
+.idea
+.aider*
+claude-squad
+**.DS_Store
+cs
+__pycache__/

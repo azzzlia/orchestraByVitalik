@@ -1,0 +1,5 @@
+#!/bin/sh
+# Claude Squad: продолжить разговор в этой папке. Если Squad знает точный
+# разговор (--resume <id>), открываем именно его.
+case " $* " in *" --resume "*) exec /opt/homebrew/bin/claude "$@";; esac
+exec /opt/homebrew/bin/claude --continue "$@"

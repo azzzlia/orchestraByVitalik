@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/USERNAME/bin/cs ctl:*)",
+      "Bash(cs ctl:*)",
+      "Read(/Users/USERNAME/devRepo/**)",
+      "Read(/Users/USERNAME/.claude-squad/**)",
+      "Edit(/Users/USERNAME/.claude-squad/conductor/**)",
+      "Write(/Users/USERNAME/.claude-squad/conductor/**)"
+    ]
+  }
+}

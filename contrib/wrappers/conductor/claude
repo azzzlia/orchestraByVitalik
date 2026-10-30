@@ -1,0 +1,5 @@
+#!/bin/sh
+# Claude Squad: дирижёр. Видит devRepo, чтобы читать задачи, брифы и скиллы.
+# Работает на Sonnet: ему нужно раскладывать задачи и читать статусы, а
+# тяжёлые проверки делают воркеры. Поменяй на opus, если не хватит.
+exec /opt/homebrew/bin/claude --model sonnet --add-dir /Users/USERNAME/devRepo --add-dir /Users/USERNAME/.claude-squad "$@"

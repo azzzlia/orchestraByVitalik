@@ -1,0 +1,52 @@
+#!/bin/bash
+# localize — копирует файлы дирижёра и помощника, подставляя пути этого мака.
+# В репе они написаны под автора (/Users/USERNAME, ~/devRepo/modules,
+# /opt/homebrew/bin/claude); здесь они меняются на свои из ~/.claude-squad/sq.env.
+#
+#   localize ФАЙЛ КУДА          — один файл
+#   localize -r ПАПКА КУДА      — папка целиком (существующие файлы перезаписываются)
+#   localize -r -n ПАПКА КУДА   — папка, но уже существующие файлы не трогать
+
+[ -f "$HOME/.claude-squad/sq.env" ] && . "$HOME/.claude-squad/sq.env"
+SQ_DIR="${SQ_DIR:-$HOME/devRepo/modules}"
+SQ_REPOS="${SQ_REPOS:-$(dirname "$SQ_DIR")}"
+CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude || echo /opt/homebrew/bin/claude)}"
+export SQ_DIR SQ_REPOS CLAUDE_BIN
+
+subst() { # stdin → stdout
+  perl -pe '
+    s{/Users/USERNAME/devRepo/modules}{$ENV{SQ_DIR}}g;
+    s{~/devRepo/modules}{$ENV{SQ_DIR}}g;
+    s{~/devRepo\b}{$ENV{SQ_REPOS}}g;
+    s{/Users/USERNAME/devRepo}{$ENV{SQ_REPOS}}g;
+    s{/Users/USERNAME}{$ENV{HOME}}g;
+    s{/opt/homebrew/bin/claude}{$ENV{CLAUDE_BIN}}g;
+    s{\bUSERNAME\b}{$ENV{USER}}g;
+  '
+}
+
+copy_one() { # SRC DST
+  mkdir -p "$(dirname "$2")"
+  if LC_ALL=C grep -Iq . "$1" 2>/dev/null || [ ! -s "$1" ]; then
+    subst < "$1" > "$2.tmp" && mv -f "$2.tmp" "$2"
+  else
+    cp -f "$1" "$2" # двоичный файл — как есть
+  fi
+  [ -x "$1" ] && chmod +x "$2"
+  return 0
+}
+
+if [ "$1" = "-r" ]; then
+  shift; keep=""
+  [ "$1" = "-n" ] && { keep=1; shift; }
+  src="${1%/}"; dst="${2%/}"
+  [ -d "$src" ] || { echo "localize: нет папки $src" >&2; exit 1; }
+  (cd "$src" && find . -type f ! -path '*/__pycache__/*' ! -name '*.pyc' ! -name '.DS_Store') | while read -r f; do
+    f="${f#./}"
+    [ -n "$keep" ] && [ -e "$dst/$f" ] && continue
+    copy_one "$src/$f" "$dst/$f"
+  done
+else
+  [ -f "$1" ] || { echo "localize: нет файла $1" >&2; exit 1; }
+  copy_one "$1" "$2"
+fi

@@ -1,0 +1,19 @@
+#!/bin/bash
+# Запускает Squad в фоне — в tmux-сессии «orchestra», если он ещё не запущен.
+# Так терминал можно закрывать: Squad работает дальше, веб-интерфейс и приложение
+# «Оркестр» подключаются к нему. Посмотреть сам Squad: tmux attach -t orchestra
+# (выйти, не останавливая: Ctrl+B, затем D).
+export PATH="$HOME/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+S=orchestra
+if tmux has-session -t "=$S" 2>/dev/null; then
+  echo "Squad уже работает в фоне (tmux attach -t $S)"
+  exit 0
+fi
+# Squad уже открыт в окне терминала — второй не нужен.
+if [ -f "$HOME/.claude-squad/squad.pid" ] && kill -0 "$(cat "$HOME/.claude-squad/squad.pid" 2>/dev/null)" 2>/dev/null; then
+  echo "Squad уже запущен в терминале"
+  exit 0
+fi
+# Широкое окно: по нему Squad подгоняет размер экранов воркеров.
+tmux new-session -d -s "$S" -x 240 -y 64 -c "$HOME" "$HOME/bin/sq"
+echo "Squad запущен в фоне (tmux attach -t $S)"
