@@ -3,7 +3,6 @@ package main
 import (
 	"claude-squad/config"
 	"claude-squad/session"
-	"claude-squad/ui"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// `cs statusline` prints a one-line pet with the density score for Claude Code's
+// `cs statusline` prints the density score for Claude Code's
 // status line (under the input box). `--install` puts it into ~/.claude/settings.json.
 
 var (
@@ -22,27 +21,21 @@ var (
 	statuslineUninstall bool
 )
 
-// microPets are the status-line faces, saddest first: one per overview pet mood.
-var microPets = []string{"(╥_╥)", "(T_T)", "(;_;)", "(-_-)", "(¬_¬)", "(•_•)", "(•ᴗ•)", "(^ᴗ^)", "(^▽^)", "(≧ᴗ≦)", "(✧ᴗ✧)", "(≧ᴗ≦)✧"}
-
-// osMicro are the status-line faces of «ОС», grumpiest first.
-var osMicro = []string{"(ಠ益ಠ)", "(ಠ_ಠ)", "(¬_¬)?", "(-_-)⌚", "(-_-)", "(•_•)", "(•‿•)", "(^‿^)", "(^▽^)", "(^▽^)b", "(⌐■_■)", "(⌐■‿■)♥"}
-
-func microPet(v float64) string {
-	m := ui.PetMood(v)
-	if n := len(ui.PetMoodLabels); n > 0 && len(microPets) != n {
-		m = m * len(microPets) / n
-	}
-	if m < 0 {
-		m = 0
-	}
-	if m >= len(microPets) {
-		m = len(microPets) - 1
-	}
-	return microPets[m]
-}
-
 func fmtScore(v float64) string { return strings.Replace(fmt.Sprintf("%.1f", v), ".", ",", 1) }
+
+// parColor: the zones of parallel hours (emerald from 15).
+func parColor(v float64) string {
+	switch {
+	case v >= 15:
+		return "1;32"
+	case v >= 10:
+		return "32"
+	case v >= 6:
+		return "33"
+	default:
+		return "31"
+	}
+}
 
 func scoreColor(v float64) string {
 	switch {
@@ -60,31 +53,18 @@ func statusLineText() string {
 	// scans and no t39 command here.
 	v, ok := session.CachedDensity(30 * time.Minute)
 	cfg := config.LoadConfig()
+	label, color := "плт", scoreColor
+	if cfg.ParallelScore() {
+		label, color = "пар", parColor // parallel hours today: agent sessions + hours with commits
+	}
 	t39 := ""
 	if tv, tok := session.CachedT39(); tok {
 		t39 = fmt.Sprintf(" \x1b[2m· t39\x1b[0m \x1b[%sm%s\x1b[0m", scoreColor(tv), fmtScore(tv))
 	}
 	if !ok {
-		return "\x1b[2m(•ᴗ•) плт —\x1b[0m" + t39
+		return "\x1b[2m" + label + " —\x1b[0m" + t39
 	}
-	if cfg.Pet == "off" {
-		return fmt.Sprintf("плт \x1b[%sm%s\x1b[0m%s", scoreColor(v), fmtScore(v), t39)
-	}
-	kind, face := cfg.Pet, microPet(v)
-	m := ui.PetMood(v)
-	switch kind {
-	case "os":
-		face = osMicro[m]
-	case "dog", "cat":
-	default:
-		kind = "tyan"
-	}
-	var own ui.PetPhrases
-	if dir, err := config.GetConfigDir(); err == nil {
-		own = ui.LoadPetPhrases(filepath.Join(dir, "pet-phrases.json"))
-	}
-	phrase := ui.PetPhraseFor(kind, m, time.Now(), own)
-	return fmt.Sprintf("\x1b[2m%s «%s»\x1b[0m плт \x1b[%sm%s\x1b[0m%s", face, phrase, scoreColor(v), fmtScore(v), t39)
+	return fmt.Sprintf("%s \x1b[%sm%s\x1b[0m%s", label, color(v), fmtScore(v), t39)
 }
 
 func claudeSettingsPath() string {

@@ -44,12 +44,38 @@ func (g *GitWorktree) diffBase() string {
 		if out, err := g.runGitCommand(g.worktreePath, "merge-base", "HEAD", ref); err == nil {
 			if mb := strings.TrimSpace(out); mb != "" {
 				base = mb
+				// The branch merged a master newer than the local origin/master (pulled
+				// without updating it): count from that merged master, or every line master
+				// changed since shows up as the session's own (+1000 −367000).
+				if p2 := g.mergedNewer(ref, mb); p2 != "" {
+					base = p2
+				}
 				break
 			}
 		}
 	}
 	g.mergeBase, g.mergeBaseAt = base, time.Now()
 	return base
+}
+
+// mergedNewer: the second parent of the latest merge on the branch (its own first-parent
+// line), when it is a newer commit of ref's line (ref is its ancestor).
+func (g *GitWorktree) mergedNewer(ref, mb string) string {
+	// only the branch's own merges (since the merge-base): no walk through all history,
+	// and never a merge from before the branch
+	m, err := g.runGitCommand(g.worktreePath, "rev-list", "--first-parent", "--merges", "--max-count=1", mb+"..HEAD")
+	if err != nil || strings.TrimSpace(m) == "" {
+		return ""
+	}
+	p2, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", "-q", strings.TrimSpace(m)+"^2")
+	if err != nil || strings.TrimSpace(p2) == "" {
+		return ""
+	}
+	p := strings.TrimSpace(p2)
+	if _, err := g.runGitCommand(g.worktreePath, "merge-base", "--is-ancestor", ref, p); err != nil {
+		return "" // not a newer master: merged an older one, or another branch
+	}
+	return p
 }
 
 func (g *GitWorktree) defaultRemoteRefs() []string {

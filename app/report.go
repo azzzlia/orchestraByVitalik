@@ -56,6 +56,7 @@ func (m *home) recordStatuses() {
 			tr.written = tr.label
 			session.AppendEvent(session.Event{At: tr.since, Kind: "status", Number: inst.Number,
 				Title: inst.Title, Label: tr.label, Status: int(tr.kind)})
+			m.pushStatus(inst, tr.label, tr.kind)
 		}
 	}
 }
@@ -362,4 +363,25 @@ func formatDensityDay(day time.Time, v float64, out string) string {
 		line += " · пустые рабочие часы: " + strings.Join(empty, ", ")
 	}
 	return line
+}
+
+// pushStatus: a notice on the phone when a session needs the user — a permission, a menu,
+// a question (NeedsInput), or the conductor / the assistant waiting for an answer. A
+// worker that merely finished a step is the conductor's to handle: no notice.
+func (m *home) pushStatus(inst *session.Instance, label string, kind session.StatusKind) {
+	if m.push == nil {
+		return
+	}
+	lead := inst.Conductor || inst.Assistant
+	if kind != session.StatusNeedsInput && !(lead && kind == session.StatusWaiting) {
+		return
+	}
+	title := fmt.Sprintf("#%d %s", inst.Number, inst.Title)
+	if inst.Conductor {
+		title = "Дирижёр"
+	} else if inst.Assistant {
+		title = "Помощник"
+	}
+	m.push.notify(fmt.Sprintf("s%d:%d", inst.Number, kind), 10*time.Minute,
+		pushMsg{Title: title, Body: label, Tag: fmt.Sprintf("s%d", inst.Number), URL: fmt.Sprintf("/?open=%d", inst.Number)})
 }

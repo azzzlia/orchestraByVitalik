@@ -28,3 +28,22 @@ func TestLatinKey(t *testing.T) {
 	m = latinKey(tea.KeyMsg{Type: tea.KeyEnter})
 	require.Equal(t, "enter", m.String())
 }
+
+func TestAnsiToHTMLCarriesStateAcrossRows(t *testing.T) {
+	h := ansiToHTML([]string{"\x1b[48;5;237m❯ первая", "вторая\x1b[0m", "обычная"}, -1, -1)
+	ls := strings.Split(h, "\n")
+	if !strings.Contains(ls[1], "background:") || strings.Contains(ls[2], "background:") {
+		t.Fatalf("фон не перенёсся на вторую строку или протёк дальше: %q", h)
+	}
+}
+
+func TestMarkAnswers(t *testing.T) {
+	raw := []string{"❯ привет", "", "● Bash(ls)", "  ⎿ a.txt", "", "● Передал ответы.", "", "  - раз", "  - два", "", "✻ Worked for 3s", "───", "❯ "}
+	h := strings.Split(markAnswers(raw, strings.Join(raw, "\n")), "\n")
+	mark := func(k int) bool { return strings.HasPrefix(h[k], `<span class="ail">`) }
+	for k, want := range []bool{false, false, false, false, false, true, true, true, true, false, false, false, false} {
+		if mark(k) != want {
+			t.Errorf("line %d %q: marked=%v", k, raw[k], mark(k))
+		}
+	}
+}

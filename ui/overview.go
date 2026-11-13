@@ -293,7 +293,7 @@ func (l OverviewLayout) isGridRow(ri, n int) bool {
 func RenderOverview(instances []*session.Instance, selected, width, height int) string {
 	header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#a78bfa")).
 		Render(fmt.Sprintf(" Все сессии (%d)", len(instances))) +
-		overviewDim.Render("   ←↑↓→ выбрать · i написать · enter открыть · r разбудить · p питомец · v/esc назад")
+		overviewDim.Render("   ←↑↓→ выбрать · i написать · enter открыть · r разбудить · v/esc назад")
 	if len(instances) == 0 {
 		return header + "\n\n  Сессий пока нет."
 	}

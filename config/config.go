@@ -62,6 +62,17 @@ type Config struct {
 	// (e.g. "git.example.com:443"). Squad probes them to see when the VPN drops and comes
 	// back, and then gets the sessions that got stuck on it going again.
 	VPNCheck []string `json:"vpn_check,omitempty"`
+	// VPNApp is the VPN client app (e.g. "IdecoClient"). When set and the VPN stays
+	// down, Squad reopens it — seven minutes into the outage (after the client's own retries), then every 15 minutes, at
+	// most three times — and tells you if that did not bring the VPN back.
+	VPNApp string `json:"vpn_app,omitempty"`
+	// ClaudeProxy (host:port of an HTTP proxy) sends Claude/OpenAI traffic through that
+	// proxy without a system-wide interceptor like Proxifier: sessions Squad starts get
+	// HTTPS_PROXY/NO_PROXY, and http://127.0.0.1:<web port>/proxy.pac is a PAC file for
+	// macOS (System Settings → Network → Proxies) that sends only those domains there.
+	ClaudeProxy string `json:"claude_proxy,omitempty"`
+	// NoProxy adds hosts (".bx", "10.0.0.0/8") that must bypass ClaudeProxy in sessions.
+	NoProxy []string `json:"no_proxy,omitempty"`
 	// MCPToolTimeoutSeconds limits one MCP tool call in sessions Squad starts, so a
 	// call whose connection died with the VPN fails instead of hanging forever.
 	// 0 uses the default, negative leaves Claude Code's own limit.
@@ -84,12 +95,6 @@ type Config struct {
 	// CapacityNotify: tell the user (no tokens) when there is room to take a task
 	// from the team board, on workdays 10–19, at most every 2 hours. Default on.
 	CapacityNotifyOff bool `json:"capacity_notify_off,omitempty"`
-	// Pet in the corner of the overview (v): "" or "tyan" — the built-in one, "os" —
-	// the manager, "dog" — a puppy, "cat" — a kitten (p in the overview cycles them),
-	// "custom" — your own text art from PetDir (1.txt … 7.txt, frames split by
-	// a "---" line, saddest first), "off" — none.
-	Pet    string `json:"pet,omitempty"`
-	PetDir string `json:"pet_dir,omitempty"`
 	// RemoteControl: workers Squad starts (cs ctl new, daily jobs) get Claude Code's
 	// Remote Control named after the session: in the Claude app on the phone you see
 	// them and answer their permission prompts yourself (push notifications: /config →
@@ -111,15 +116,25 @@ type Config struct {
 	TeamBoard string `json:"team_board,omitempty"`
 	// WebUI: the web interface (sessions, «ждут тебя», live terminals). "off" turns it
 	// off; on by default at 127.0.0.1 and the Mac's Tailscale address, behind a key.
-	WebUI   string `json:"web_ui,omitempty"`
-	WebPort int    `json:"web_port,omitempty"`
-	// PetStill: the pet stands in the corner instead of walking along the bottom.
-	PetStill bool `json:"pet_still,omitempty"`
-	// PetBig: the old big portrait pet instead of the small full-height one.
-	PetBig bool `json:"pet_big,omitempty"`
+	WebUI string `json:"web_ui,omitempty"`
+	// WebShell: "off" turns off the Mac terminal in the web interface (on by default).
+	WebShell string `json:"web_shell,omitempty"`
+	WebPort  int    `json:"web_port,omitempty"`
+	// UpdatesRepo / UpdatesModules / UpdatesChat / UpdatesModel — разбор обновлений в
+	// тестировании (панель «Обновления» в веб-интерфейсе): репозиторий (~/devRepo/modules),
+	// модули (["im"]), чат Б24, где объявляют «забрать в тест» ("chatNNNNNNN", "off" — не
+	// читать), модель для текста дайджеста ("sonnet").
+	UpdatesRepo    string   `json:"updates_repo,omitempty"`
+	UpdatesModules []string `json:"updates_modules,omitempty"`
+	UpdatesChat    string   `json:"updates_chat,omitempty"`
+	UpdatesModel   string   `json:"updates_model,omitempty"`
 	// DensityCommand prints your "плотность" score; Squad runs it every 10 minutes.
 	// Without it, set the score by hand: cs density 10,4.
 	DensityCommand string `json:"density_command,omitempty"`
+	// Score: what the pet and the status line count. "" / "parallel" — parallel hours for
+	// the calendar day: agent sessions' active time (each session on its own) plus the
+	// hours with commits (density_command); "density" — the old score (hours with commits).
+	Score string `json:"score,omitempty"`
 	// T39Command prints the official score from t39 (shown next to the local one).
 	// Empty: the status-line command that was there before cs statusline --install.
 	T39Command string `json:"t39_command,omitempty"`
@@ -411,3 +426,6 @@ func (c *Config) WebPortOrDefault() int {
 	}
 	return 8787
 }
+
+// ParallelScore: the score is parallel hours (the default), not the old density.
+func (c *Config) ParallelScore() bool { return c.Score != "density" }

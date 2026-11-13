@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,6 +26,7 @@ const densityGap = 10 * time.Minute
 type densityInterval struct{ from, to time.Time }
 
 type densityBranch struct {
+	sub       bool // a subagent's log, not a session's
 	offset    int64
 	last      time.Time
 	intervals []densityInterval
@@ -69,11 +71,11 @@ func (t *DensityTracker) Refresh(now time.Time) {
 			}
 			b := t.files[p]
 			if b == nil {
-				b = &densityBranch{}
+				b = &densityBranch{sub: strings.Contains(filepath.ToSlash(p), "/subagents/")}
 				t.files[p] = b
 			}
 			if info.Size() < b.offset {
-				*b = densityBranch{}
+				*b = densityBranch{sub: b.sub}
 			}
 			if info.Size() > b.offset {
 				b.read(p, cutoff)
@@ -198,4 +200,30 @@ func (t *DensityTracker) Estimate() DensityEstimate {
 	est.AgentHours = sum.Hours()
 	est.Value = sum.Hours() / union.Hours()
 	return est
+}
+
+// AgentHoursSince sums the agent's active time since from (a calendar day: from local
+// midnight): sessions — each session counts on its own, so two at once give two hours
+// per hour ("параллельные часы") — and, separately, their subagents.
+func (t *DensityTracker) AgentHoursSince(from time.Time) (sessions, subagents float64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var s, a time.Duration
+	for _, b := range t.files {
+		for _, iv := range b.intervals {
+			if iv.from.Before(from) {
+				iv.from = from
+			}
+			d := iv.to.Sub(iv.from)
+			if d <= 0 {
+				continue
+			}
+			if b.sub {
+				a += d
+			} else {
+				s += d
+			}
+		}
+	}
+	return s.Hours(), a.Hours()
 }

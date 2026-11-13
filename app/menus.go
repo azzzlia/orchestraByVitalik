@@ -16,6 +16,9 @@ func (m *home) handleMenus(now time.Time) {
 	wait := m.appConfig.MenuAuto()
 	for _, inst := range m.list.GetInstances() {
 		m.notifyLongPermission(inst, now)
+		if inst.Conductor {
+			m.notifyConductorWaiting(inst, now)
+		}
 		menu := inst.Menu
 		if menu == nil || inst.Conductor || inst.Assistant || !session.ConductorActive || inst.Status != session.Ready {
 			continue
@@ -85,4 +88,38 @@ func (m *home) notifyLongPermission(inst *session.Instance, now time.Time) {
 	}
 	session.AppendEvent(session.Event{Kind: "permission", Number: inst.Number, Title: inst.Title, Text: "ждёт разрешения 15 мин: " + what})
 	notifyUser(fmt.Sprintf("#%d ждёт разрешения 15 мин", inst.Number), what)
+}
+
+// conductorRemindAfter: the conductor still waits for the user this long — remind once.
+const conductorRemindAfter = 10 * time.Minute
+
+// notifyConductorWaiting tells the user that the conductor waits for them («ждёт тебя»).
+// «⚠ НУЖЕН ТЫ» and permission prompts are announced right away by the claude-notify hook;
+// the rest («ждёт тебя» by its recap, a menu, an interruption) has no hook — announced here. Whatever the reason,
+// if it still waits after 10 minutes, one reminder.
+func (m *home) notifyConductorWaiting(inst *session.Instance, now time.Time) {
+	label, kind := inst.StatusLabel()
+	if (kind != session.StatusWaiting && kind != session.StatusNeedsInput) || inst.NetworkIssue {
+		// A moment out of «ждёт тебя» (a digest typed in, one turn, a redraw) does not end
+		// the wait: only a minute away from it does — or every digest re-announced it.
+		if m.condWaitOff.IsZero() {
+			m.condWaitOff = now
+		} else if now.Sub(m.condWaitOff) > time.Minute {
+			m.condWaitKey, m.condWaitReminded = "", false
+		}
+		return
+	}
+	m.condWaitOff = time.Time{}
+	if label != m.condWaitKey {
+		m.condWaitKey, m.condWaitSince, m.condWaitReminded = label, now, false
+		if !inst.CallsUserNow() && !inst.NeedsInput && inst != m.attached {
+			notifyUser(fmt.Sprintf("#%d Дирижёр ждёт тебя", inst.Number), label)
+		}
+		return
+	}
+	if !m.condWaitReminded && now.Sub(m.condWaitSince) >= conductorRemindAfter && inst != m.attached {
+		m.condWaitReminded = true
+		notifyUser(fmt.Sprintf("#%d Дирижёр всё ещё ждёт тебя", inst.Number),
+			fmt.Sprintf("%d мин: %s", int(now.Sub(m.condWaitSince).Minutes()), label))
+	}
 }

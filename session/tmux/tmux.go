@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -212,6 +213,9 @@ func (t *TmuxSession) StartWithCommand(workDir, command string) error {
 
 	// Create a new detached tmux session and start claude in it
 	args := []string{"new-session", "-d", "-s", t.sanitizedName, "-c", workDir}
+	if w, h := rememberedSize(); w > 0 && h > 0 { // start at the size it will be shown at
+		args = append(args, "-x", strconv.Itoa(w), "-y", strconv.Itoa(h))
+	}
 	for _, e := range ExtraEnv {
 		args = append(args, "-e", e)
 	}
@@ -327,6 +331,9 @@ func (t *TmuxSession) Restore() error {
 	}
 	t.ptmx = ptmx
 	t.monitor = newStatusMonitor()
+	if w, h := rememberedSize(); w > 0 && h > 0 {
+		_ = t.updateWindowSize(w, h) // best effort: the next resize sets it anyway
+	}
 	return nil
 }
 
@@ -395,8 +402,11 @@ func (t *TmuxSession) HasUpdatedWithContent() (updated bool, hasPrompt bool, con
 		hasPrompt = strings.Contains(content, "Yes, allow once")
 	}
 
-	if !bytes.Equal(t.monitor.hash(content), t.monitor.prevOutputHash) {
-		t.monitor.prevOutputHash = t.monitor.hash(content)
+	// The status line under the input box changes by itself (a pet's phrase, a clock,
+	// usage numbers): that is not the agent working, so it is left out of the comparison.
+	// Otherwise a session stuck on a permission prompt looked «в работе».
+	if h := t.monitor.hash(withoutStatusLine(content)); !bytes.Equal(h, t.monitor.prevOutputHash) {
+		t.monitor.prevOutputHash = h
 		return true, hasPrompt, content
 	}
 	return false, hasPrompt, content
@@ -602,6 +612,30 @@ func (t *TmuxSession) SetDetachedSize(width, height int) error {
 	return t.updateWindowSize(width, height)
 }
 
+// RememberSize sets the size new and woken sessions start with (the session preview's;
+// other panes, like the shell tab, have their own sizes and do not count).
+func RememberSize(width, height int) {
+	if width > 0 && height > 0 {
+		sizeMu.Lock()
+		lastW, lastH = width, height
+		sizeMu.Unlock()
+	}
+}
+
+// The size sessions are shown at, remembered from the last SetDetachedSize: a session
+// started or woken later gets it at once. Without it a woken session stayed at tmux's
+// default 80x24 until the next resize — narrow lines and an empty band under the input.
+var (
+	sizeMu       sync.Mutex
+	lastW, lastH int
+)
+
+func rememberedSize() (int, int) {
+	sizeMu.Lock()
+	defer sizeMu.Unlock()
+	return lastW, lastH
+}
+
 // updateWindowSize updates the window size of the PTY.
 func (t *TmuxSession) updateWindowSize(cols, rows int) error {
 	return pty.Setsize(t.ptmx, &pty.Winsize{
@@ -669,4 +703,17 @@ func CleanupSessions(cmdExec cmd.Executor) error {
 		}
 	}
 	return nil
+}
+
+// withoutStatusLine drops what Claude Code draws under the bottom rule of its input box
+// (status line, mode hints) — the lines below the last "───" near the bottom.
+func withoutStatusLine(content string) string {
+	lines := strings.Split(strings.TrimRight(content, "\n "), "\n")
+	for n := len(lines) - 1; n >= 0 && n >= len(lines)-8; n-- {
+		t := strings.TrimSpace(ansiRe.ReplaceAllString(lines[n], ""))
+		if strings.HasPrefix(t, "───") || strings.HasPrefix(t, "╰") {
+			return strings.Join(lines[:n+1], "\n")
+		}
+	}
+	return content
 }

@@ -1,19 +1,16 @@
 package app
 
 import (
-	"claude-squad/config"
 	"claude-squad/log"
 	"claude-squad/session"
-	"claude-squad/ui"
 	"context"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
-// refreshDensity keeps the pet's score current. Priority: a score set by hand
+// refreshDensity keeps the density score current. Priority: a score set by hand
 // today (cs density 10,4), then density_command, then the local estimate from
 // Claude Code's logs (sessions and subagents working at the same time).
 func (m *home) refreshDensity() {
@@ -26,6 +23,7 @@ func (m *home) refreshDensity() {
 		m.densityTracker = session.NewDensityTracker()
 	}
 	tracker, cmdline, t39cmd := m.densityTracker, m.appConfig.DensityCommand, m.appConfig.T39Command
+	parallel := m.appConfig.ParallelScore()
 	// Every 2 minutes (the "этот час ✓" mark should follow a commit soon), and
 	// right after the hour changes.
 	runCmd := cmdline != "" && (time.Since(m.densityCmdAt) >= 2*time.Minute || m.densityCmdHour != time.Now().Format("2006-01-02 15"))
@@ -36,7 +34,7 @@ func (m *home) refreshDensity() {
 		v, ok := 0.0, false
 		if mv, at, has := session.ReadDensity(); has && at.Format("2006-01-02") == time.Now().Format("2006-01-02") {
 			v, ok = mv, true // set by hand today
-		} else if cmdline != "" {
+		} else if cmdline != "" || parallel {
 			if runCmd {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				out, err := exec.CommandContext(ctx, "/bin/sh", "-c", cmdline).Output()
@@ -54,6 +52,21 @@ func (m *home) refreshDensity() {
 			m.mu.Lock()
 			v, ok = m.densityCmdValue, m.densityCmdOK
 			m.mu.Unlock()
+			if parallel {
+				// Parallel hours of today: the agent's sessions + the hours with commits.
+				now := time.Now()
+				tracker.Refresh(now)
+				midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+				ag, subs := tracker.AgentHoursSince(midnight)
+				git := 0.0
+				if ok {
+					git = v
+				}
+				v, ok = ag+git, ag+git > 0 || cmdline != ""
+				m.mu.Lock()
+				m.parAgent, m.parSub, m.parGit = ag, subs, git
+				m.mu.Unlock()
+			}
 		} else {
 			tracker.Refresh(time.Now())
 			if est := tracker.Estimate(); est.HasActivity {
@@ -62,39 +75,25 @@ func (m *home) refreshDensity() {
 		}
 		session.WriteDensityCache(v, ok)
 		tv, tok := session.T39Density(t39cmd)
-		var phrases ui.PetPhrases
-		if dir, err := config.GetConfigDir(); err == nil {
-			phrases = ui.LoadPetPhrases(filepath.Join(dir, "pet-phrases.json"))
-		}
 		m.mu.Lock()
 		m.t39, m.hasT39 = tv, tok
-		m.petPhrases = phrases
 		m.density, m.hasDensity = v, ok
 		m.densityRunning = false
 		m.mu.Unlock()
 	}()
 }
 
-// petOverlay draws the pet over the overview: see-through, walking along the bottom.
-func (m *home) petOverlay(bg string, width, height int) string {
-	return ui.OverlayPet(bg, m.petConfig(), m.appConfig.PetStill || m.appConfig.PetBig, width, height, time.Now())
-}
-
-// petConfig is what the pet shows.
-func (m *home) petConfig() ui.PetConfig {
-	return ui.PetConfig{
-		Kind: m.appConfig.Pet, CustomDir: m.appConfig.PetDir,
-		Density: m.density, HasValue: m.hasDensity, T39: m.t39, HasT39: m.hasT39,
-		Goal: m.densityGoal(), HourEmpty: m.hourEmptyNow(time.Now()), HourCommit: m.hourCommit(),
-		Big: m.appConfig.PetBig, Phrases: m.petPhrases,
-	}
-}
-
 const densityGoalHours = 6
+
+// parallelGoalHours: the emerald zone of «часы с параллельной работой» starts here.
+const parallelGoalHours = 15
 
 // densityGoal is the daily goal in hours, shown only for the commit-hours score
 // (density_command); the local estimate is another unit.
 func (m *home) densityGoal() float64 {
+	if m.appConfig.ParallelScore() {
+		return parallelGoalHours
+	}
 	if m.appConfig.DensityCommand == "" || !m.densityCmdOK {
 		return 0
 	}

@@ -61,3 +61,39 @@ func TestDiffCountsOnlyTheBranch(t *testing.T) {
 		t.Fatalf("want +1 -0 (only the branch), got +%d -%d", st.Added, st.Removed)
 	}
 }
+
+// The branch merged a master newer than the local origin/master (fetched by URL, so
+// origin/master stayed old): master's own changes — here deletions — are not the branch's.
+func TestDiffAfterMergingNewerMasterThanOriginRef(t *testing.T) {
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	work := filepath.Join(root, "work")
+	gitT(t, root, "init", "-q", "--bare", "-b", "master", origin)
+	gitT(t, root, "clone", "-q", origin, work)
+	write(t, filepath.Join(work, "big.txt"), strings.Repeat("old\n", 500))
+	gitT(t, work, "add", ".")
+	gitT(t, work, "commit", "-qm", "init")
+	gitT(t, work, "push", "-q", "origin", "HEAD:master")
+	gitT(t, work, "fetch", "-q")
+	start := gitT(t, work, "rev-parse", "HEAD")
+	gitT(t, work, "checkout", "-qb", "feature")
+	write(t, filepath.Join(work, "f.txt"), "mine\n")
+	gitT(t, work, "add", ".")
+	gitT(t, work, "commit", "-qm", "feature")
+	other := filepath.Join(root, "other")
+	gitT(t, root, "clone", "-q", origin, other)
+	gitT(t, other, "rm", "-q", "big.txt")
+	gitT(t, other, "commit", "-qm", "master drops big.txt")
+	gitT(t, other, "push", "-q", "origin", "HEAD:master")
+	gitT(t, work, "fetch", "-q", origin, "master") // by path: origin/master is not updated
+	gitT(t, work, "merge", "-q", "--no-edit", "FETCH_HEAD")
+
+	g := NewGitWorktreeFromStorage(work, work, "s", "feature", start, true, true)
+	st := g.DiffNumstat()
+	if st.Error != nil {
+		t.Fatal(st.Error)
+	}
+	if st.Added != 1 || st.Removed != 0 {
+		t.Fatalf("want +1 -0 (only the branch), got +%d -%d", st.Added, st.Removed)
+	}
+}

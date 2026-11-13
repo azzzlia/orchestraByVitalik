@@ -166,6 +166,8 @@ type SessionRequest struct {
 	// Group sets the session's group ("qa", "dev", "auto"); with Dir — of the new one.
 	Group    string `json:"group,omitempty"`
 	SetGroup bool   `json:"set_group,omitempty"`
+	// SetNote replaces the session's note (cs ctl note): what it is for, which task it serves.
+	SetNote bool `json:"set_note,omitempty"`
 	MR       string `json:"mr,omitempty"`
 	MRState  string `json:"mr_state,omitempty"`
 	// Focus opens the session full screen in Squad (from a notification click).
@@ -201,6 +203,43 @@ func SubmitSessionRequest(req SessionRequest) (string, error) {
 	return path, os.Rename(tmp, path)
 }
 
+// WaitingListRequests counts queued cs ctl new/kill requests (they wait while a
+// window is open in Squad) and returns the age of the oldest.
+func WaitingListRequests() (n int, oldest time.Duration) {
+	dir, err := requestsDir()
+	if err != nil {
+		return 0, 0
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, 0
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var req SessionRequest
+		if json.Unmarshal(data, &req) != nil || req.Wake || req.Restart || req.Focus || req.Mark != "" || req.MR != "" || req.SetGroup || req.SetNote {
+			continue
+		}
+		n++
+		at := req.At
+		if at.IsZero() {
+			if info, err := e.Info(); err == nil {
+				at = info.ModTime()
+			}
+		}
+		if age := time.Since(at); age > oldest {
+			oldest = age
+		}
+	}
+	return n, oldest
+}
+
 // TakeSessionRequests returns queued requests and removes them from the queue.
 func TakeSessionRequests() []SessionRequest {
 	return TakeSessionRequestsWhere(func(SessionRequest) bool { return true })
@@ -232,7 +271,7 @@ func TakeSessionRequestsWhere(take func(SessionRequest) bool) []SessionRequest {
 			continue
 		}
 		var req SessionRequest
-		if json.Unmarshal(data, &req) != nil || req.Title == "" || !(req.Dir != "" || req.Kill || req.Wake || req.Restart || req.Focus || req.Mark != "" || req.MR != "" || req.SetGroup) {
+		if json.Unmarshal(data, &req) != nil || req.Title == "" || !(req.Dir != "" || req.Kill || req.Wake || req.Restart || req.Focus || req.Mark != "" || req.MR != "" || req.SetGroup || req.SetNote) {
 			_ = os.Remove(path)
 			continue
 		}
@@ -245,7 +284,7 @@ func TakeSessionRequestsWhere(take func(SessionRequest) bool) []SessionRequest {
 		switch {
 		case req.Focus:
 			ttl = 2 * time.Minute // a click from long ago: don't jump into a session out of the blue
-		case !(req.Wake || req.Restart || req.Mark != "" || req.MR != "" || req.SetGroup):
+		case !(req.Wake || req.Restart || req.Mark != "" || req.MR != "" || req.SetGroup || req.SetNote):
 			// new/kill wait (while a window is open) as long as needed: cs ctl new has
 			// already told the conductor «запрос принят».
 			ttl = 24 * time.Hour

@@ -10,18 +10,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"claude-squad/ui"
 )
 
 // The web interface: the same sessions, «ждут тебя» and live terminals in a browser —
@@ -121,7 +121,7 @@ func (m *home) startWeb() {
 			if subtle.ConstantTimeCompare([]byte(key), []byte(tok)) != 1 {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
-				fmt.Fprint(w, `<meta name="viewport" content="width=device-width"><body style="font:16px system-ui;background:#16161e;color:#c0caf5;padding:24px">Нужен ключ. Открой ссылку из <code>cs web</code> на маке.</body>`)
+				fmt.Fprint(w, `<meta name="viewport" content="width=device-width"><body style="font:16px system-ui;background:#110f17;color:#f1eff7;padding:24px">Нужен ключ. Открой ссылку из <code>cs web</code> на маке — или вставь ключ:<form style="margin-top:14px;display:flex;gap:8px"><input name="key" autocomplete="off" autocapitalize="off" style="flex:1;font:inherit;padding:10px;border-radius:10px;border:1px solid #3a364a;background:#1b1924;color:inherit"><button style="font:inherit;padding:10px 16px;border-radius:10px;border:0;background:#ec6f9c;color:#110f17">Войти</button></form></body>`)
 				return
 			}
 			if r.URL.Query().Get("key") != "" {
@@ -151,17 +151,79 @@ func (m *home) startWeb() {
 	mux.HandleFunc("/api/state", auth(m.webState))
 	mux.HandleFunc("/api/stream", auth(m.webStream))
 	mux.HandleFunc("/api/history", auth(m.webHistory))
+	mux.HandleFunc("/api/chat", auth(m.webChat))
+	mux.HandleFunc("/api/file", auth(m.webFile))
+	mux.HandleFunc("/api/upload", post(m.webUpload))
 	mux.HandleFunc("/api/keys", post(m.webKeys))
 	mux.HandleFunc("/api/send", post(m.webSend))
 	mux.HandleFunc("/api/answer", post(m.webAnswer))
 	mux.HandleFunc("/api/approve", post(m.webApprove))
 	mux.HandleFunc("/api/action", post(m.webAction))
-	mux.HandleFunc("/api/pet", auth(m.webPet))
 	mux.HandleFunc("/api/color", post(m.webColor))
 	mux.HandleFunc("/api/group", post(m.webGroup))
-	mux.HandleFunc("/api/pet/next", post(m.webPetNext))
 	mux.HandleFunc("/api/prefs", auth(webPrefs))
 	mux.HandleFunc("/api/events", auth(webEvents))
+	mux.HandleFunc("/api/timeline", auth(m.webTimeline))
+	mux.HandleFunc("/api/sh/stream", auth(m.webShellStream))
+	mux.HandleFunc("/api/sh/keys", post(m.webShellKeys))
+	mux.HandleFunc("/api/sh/do", post(m.webShellAction))
+	if m.push == nil {
+		m.push = newPusher()
+	}
+	// icons: no key (the phone fetches them when the page goes on the home screen)
+	for _, name := range []string{"icon.svg", "icon-180.png", "icon-192.png", "icon-512.png"} {
+		name := name
+		mux.HandleFunc("/"+name, func(w http.ResponseWriter, r *http.Request) {
+			data, err := webFiles.ReadFile("web/" + name)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			if strings.HasSuffix(name, ".svg") {
+				w.Header().Set("Content-Type", "image/svg+xml")
+			} else {
+				w.Header().Set("Content-Type", "image/png")
+			}
+			w.Header().Set("Cache-Control", "max-age=86400")
+			_, _ = w.Write(data)
+		})
+	}
+	// the manifest carries the key in start_url: the app on the phone's home screen keeps
+	// its own cookies, apart from Safari, and opens already signed in
+	mux.HandleFunc("/manifest.json", auth(func(w http.ResponseWriter, r *http.Request) {
+		var mf map[string]any
+		data, _ := webFiles.ReadFile("web/manifest.json")
+		_ = json.Unmarshal(data, &mf)
+		mf["start_url"] = "/?key=" + tok
+		w.Header().Set("Content-Type", "application/manifest+json")
+		_ = json.NewEncoder(w).Encode(mf)
+	}))
+	mux.HandleFunc("/api/push/key", auth(m.push.webKey))
+	mux.HandleFunc("/api/push/sub", post(m.push.webSub))
+	mux.HandleFunc("/api/push/test", post(m.push.webTest))
+	// the service worker: no key (the browser fetches it itself), nothing secret in it
+	mux.HandleFunc("/sw.js", func(w http.ResponseWriter, r *http.Request) {
+		data, _ := webFiles.ReadFile("web/sw.js")
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Service-Worker-Allowed", "/")
+		_, _ = w.Write(data)
+	})
+	upd := newUpdater(m.appConfig)
+	upd.run()
+	mux.HandleFunc("/api/updates", auth(upd.webList))
+	mux.HandleFunc("/api/updates/view", auth(upd.webView))
+	mux.HandleFunc("/api/updates/do", post(upd.webDo))
+	mux.HandleFunc("/proxy.pac", func(w http.ResponseWriter, r *http.Request) {
+		// No key: macOS fetches it itself. Only for this Mac, not for the tailnet.
+		if h, _, _ := net.SplitHostPort(r.RemoteAddr); h != "127.0.0.1" && h != "::1" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
+		w.Header().Set("Cache-Control", "no-store")
+		fmt.Fprint(w, proxyPAC(m.appConfig.ClaudeProxy))
+	})
 
 	port := m.appConfig.WebPortOrDefault()
 	addrs := append([]string{"127.0.0.1"}, tailscaleAddrs()...)
@@ -194,6 +256,8 @@ type webSession struct {
 	Started    bool      `json:"started"`
 	Paused     bool      `json:"paused,omitempty"`
 	ActiveAt   time.Time `json:"active_at,omitempty"` // the screen last changed
+	Ask        string    `json:"ask,omitempty"`       // its first task, from the transcript: what it was opened for
+	Question   string    `json:"question,omitempty"`  // the question its last answer ends with (see question.go)
 }
 
 type webQueueItem struct {
@@ -227,8 +291,15 @@ func (m *home) webState(w http.ResponseWriter, r *http.Request) {
 		Reset5h  time.Time         `json:"reset_5h,omitempty"`
 		ResetWk  time.Time         `json:"reset_week,omitempty"`
 		RealErr  string            `json:"usage_err,omitempty"`
+		Density  float64           `json:"density,omitempty"` // плотность (or parallel hours) today
+		DensOK   bool              `json:"density_ok,omitempty"`
+		Parallel bool              `json:"parallel,omitempty"` // Density is parallel hours, not commit hours
 	}
 	out.Version, out.At = Version, time.Now()
+	out.Density, out.DensOK = m.density, m.hasDensity
+	if m.appConfig != nil {
+		out.Parallel = m.appConfig.ParallelScore()
+	}
 	instances := m.list.GetInstances()
 	for _, inst := range instances {
 		if !inst.Started() && !inst.Paused() {
@@ -242,6 +313,11 @@ func (m *home) webState(w http.ResponseWriter, r *http.Request) {
 		}
 		if inst.Started() && !inst.Paused() {
 			ws.Preview = screenPreview(inst.Screen(), 10)
+			if kind == session.StatusWaiting || kind == session.StatusConductor {
+				if p := transcriptPath(ws.ConvID); p != "" {
+					ws.Question = lastQuestion(transcriptBlocksCached(p))
+				}
+			}
 		}
 		out.Sessions = append(out.Sessions, ws)
 	}
@@ -265,6 +341,12 @@ func (m *home) webState(w http.ResponseWriter, r *http.Request) {
 	}
 	maxActive := m.appConfig.MaxActive()
 	m.mu.Unlock()
+	// first tasks from the transcripts — file reads, so outside the big lock
+	for i := range out.Sessions {
+		if ws := &out.Sessions[i]; !ws.Conductor && !ws.Assistant {
+			ws.Ask = firstAsk(ws.ConvID)
+		}
+	}
 	c := session.ComputeCapacity(snap, maxActive)
 	out.Capacity = &c
 	out.Disk = -1
@@ -316,7 +398,20 @@ func capturePane(name string) (paneFrame, error) {
 	if shown == 0 {
 		cx = -1
 	}
-	f.HTML = ansiToHTML(lines, cx, cy)
+	// Claude Code draws from the top of a tall pane and leaves the rest empty: drop the
+	// empty rows under the last text (and the cursor), or the page, scrolled to the bottom,
+	// showed a screenful of nothing with the conversation pushed up out of view.
+	last := cy
+	for k := len(lines) - 1; k > last; k-- {
+		if strings.TrimSpace(session.StripANSI(lines[k])) != "" {
+			last = k
+			break
+		}
+	}
+	if last+1 < len(lines) && last >= 0 {
+		lines = lines[:last+1]
+	}
+	f.HTML = markAnswers(lines, ansiToHTML(lines, cx, cy))
 	return f, nil
 }
 
@@ -342,12 +437,9 @@ func (m *home) webHistory(w http.ResponseWriter, r *http.Request) {
 	// The conversation from Claude Code's transcript: complete and readable, unlike the
 	// terminal's scrollback, which redraws and resizes cut.
 	if p := transcriptPath(conv); p != "" {
-		if tl := transcriptLines(p); len(tl) > 0 {
-			more := len(tl) > lines
-			if more {
-				tl = tl[len(tl)-lines:]
-			}
-			writeJSON(w, map[string]any{"html": transcriptHTML(tl), "lines": len(tl), "more": more, "kind": "transcript"})
+		if bs := transcriptBlocks(p); len(bs) > 0 {
+			page, counted, more := lastBlocks(bs, lines)
+			writeJSON(w, map[string]any{"html": transcriptHTML(page), "lines": counted, "more": more, "kind": "transcript"})
 			return
 		}
 	}
@@ -423,6 +515,11 @@ func (m *home) webStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "сессия не найдена или спит", http.StatusNotFound)
 		return
 	}
+	streamPane(w, r, name)
+}
+
+// streamPane sends the tmux pane's screen as server-sent events until the client goes.
+func streamPane(w http.ResponseWriter, r *http.Request, name string) {
 	fl, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "no stream", http.StatusInternalServerError)
@@ -556,12 +653,28 @@ func (m *home) webApprove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "запроса разрешения уже нет", http.StatusConflict)
 		return
 	}
-	if err := inst.PressKeys("1"); err != nil {
+	// opt: the prompt's own option number — 1 «Yes», 2 «Yes, don't ask again…», 3 «No, tell Claude…»
+	opt := r.FormValue("opt")
+	if opt == "" {
+		opt = "1"
+	}
+	if len(opt) != 1 || opt[0] < '1' || opt[0] > '5' {
+		http.Error(w, "нет такого варианта", http.StatusBadRequest)
+		return
+	}
+	if err := inst.PressKeys(opt); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	what := "разрешил один раз"
+	if l := strings.TrimSpace(r.FormValue("label")); opt != "1" {
+		if len([]rune(l)) > 80 {
+			l = string([]rune(l)[:80]) + "…"
+		}
+		what = fmt.Sprintf("выбрал %s «%s»", opt, l)
+	}
 	session.AppendEvent(session.Event{Kind: "user", Number: inst.Number, Title: inst.Title,
-		Text: fmt.Sprintf("#%d: ты разрешил один раз (веб) — %s", inst.Number, inst.PermissionCmd)})
+		Text: fmt.Sprintf("#%d: ты %s (веб) — %s", inst.Number, what, inst.PermissionCmd)})
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -626,27 +739,6 @@ func screenPreview(raw string, n int) []string {
 		out = append([]string{t}, out...)
 	}
 	return out
-}
-
-// webPet is the pet(s) with their frames, phrase and density caption.
-func (m *home) webPet(w http.ResponseWriter, r *http.Request) {
-	m.mu.Lock()
-	cfg := m.petConfig()
-	m.mu.Unlock()
-	writeJSON(w, map[string]any{"pet": ui.PetsForWeb(cfg, time.Now()), "kind": cfg.Kind, "name": ui.PetName(cfg.Kind)})
-}
-
-// webPetNext switches to the next pet, like p in the overview.
-func (m *home) webPetNext(w http.ResponseWriter, r *http.Request) {
-	m.mu.Lock()
-	m.appConfig.Pet = ui.NextPet(m.appConfig.Pet, m.appConfig.PetDir != "")
-	err := config.SaveConfig(m.appConfig)
-	kind := m.appConfig.Pet
-	m.mu.Unlock()
-	if err != nil {
-		log.WarningLog.Printf("save pet: %v", err)
-	}
-	writeJSON(w, map[string]string{"kind": kind, "name": ui.PetName(kind)})
 }
 
 // webColor switches the session's color label to the next one (like C in Squad).
@@ -787,4 +879,129 @@ func webEvents(w http.ResponseWriter, r *http.Request) {
 		ev = []session.Event{}
 	}
 	writeJSON(w, ev)
+}
+
+// webUpload saves a file the user attached (pasted or dropped in the web view) into
+// the session's own folder, .squad-attachments/ — Claude reads it there without a
+// permission prompt — and returns its path for the message. The folder is kept out
+// of git (info/exclude), so it never lands in a commit.
+const uploadMax = 50 << 20
+
+var uploadNameRe = regexp.MustCompile(`[^\p{L}\p{N}._-]+`)
+
+func (m *home) webUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, uploadMax+1<<20)
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		http.Error(w, "файл больше 50 МБ или не дошёл", http.StatusBadRequest)
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+	f, hdr, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "нет файла", http.StatusBadRequest)
+		return
+	}
+	defer f.Close()
+	m.mu.Lock()
+	inst := m.findByNumber(formInt(r, "n"))
+	dir := ""
+	if inst != nil {
+		dir = inst.GetWorktreePath()
+	}
+	m.mu.Unlock()
+	if dir == "" {
+		http.Error(w, "сессия не найдена", http.StatusNotFound)
+		return
+	}
+	adir := filepath.Join(dir, ".squad-attachments")
+	if err := os.MkdirAll(adir, 0755); err != nil {
+		http.Error(w, "не удалось создать папку вложений", http.StatusInternalServerError)
+		return
+	}
+	excludeFromGit(dir, ".squad-attachments/")
+	name := filepath.Base(hdr.Filename)
+	ext := strings.ToLower(filepath.Ext(name))
+	base := strings.Trim(uploadNameRe.ReplaceAllString(strings.TrimSuffix(name, filepath.Ext(name)), "-"), "-.")
+	if r := []rune(base); len(r) > 60 {
+		base = string(r[:60])
+	}
+	if base == "" {
+		base = "file"
+	}
+	if !regexp.MustCompile(`^\.[a-z0-9]{1,8}$`).MatchString(ext) {
+		ext = ""
+	}
+	path := filepath.Join(adir, time.Now().Format("0102-150405")+"-"+base+ext)
+	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		http.Error(w, "не удалось сохранить", http.StatusInternalServerError)
+		return
+	}
+	n, err := io.Copy(out, io.LimitReader(f, uploadMax+1))
+	out.Close()
+	if err != nil || n > uploadMax {
+		os.Remove(path)
+		http.Error(w, "файл больше 50 МБ", http.StatusRequestEntityTooLarge)
+		return
+	}
+	log.InfoLog.Printf("web: attachment %s (%d bytes)", path, n)
+	writeJSON(w, map[string]any{"path": path, "size": n})
+}
+
+// excludeFromGit adds a pattern to the repository's info/exclude (once).
+func excludeFromGit(dir, pattern string) {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--git-path", "info/exclude").Output()
+	if err != nil {
+		return
+	}
+	ex := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(ex) {
+		ex = filepath.Join(dir, ex)
+	}
+	if data, err := os.ReadFile(ex); err == nil && strings.Contains(string(data), pattern) {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(ex), 0755)
+	if f, err := os.OpenFile(ex, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+		fmt.Fprintf(f, "\n# orchestraByVitalik: attachments from the web view\n%s\n", pattern)
+		f.Close()
+	}
+}
+
+// answerToolRe: a tool call line ("● Bash(…)", "⏺ gitlab - get_mr (MCP)(…)"), not an answer.
+var answerToolRe = regexp.MustCompile(`^[●⏺]\s+[\w.-]+(?: - [\w.-]+)?(?: \(MCP\))?\(`)
+
+// markAnswers wraps the lines of the agent's answers on the live screen in a span with a
+// green bar on the left, as the history shows them: an answer starts at "● text" and goes
+// on over its indented lines (and blank ones) until the next marker line.
+func markAnswers(raw []string, htmlScreen string) string {
+	hl := strings.Split(htmlScreen, "\n")
+	if len(hl) != len(raw) {
+		return htmlScreen
+	}
+	in := false
+	for k, l := range raw {
+		t := strings.ReplaceAll(session.StripANSI(l), "\u00a0", " ")
+		trim := strings.TrimSpace(t)
+		switch {
+		case strings.HasPrefix(trim, "● ") || strings.HasPrefix(trim, "⏺ "):
+			in = !answerToolRe.MatchString(trim) && strings.HasPrefix(t, trim)
+		case trim == "":
+			// a blank line inside an answer keeps it going
+		case !strings.HasPrefix(t, "  "):
+			in = false // the next thing at the left edge: a prompt, a rule, a spinner, a recap
+		}
+		if in {
+			hl[k] = `<span class="ail">` + hl[k] + `</span>`
+		}
+	}
+	// blank lines at the end of an answer are not part of it
+	for k := len(hl) - 1; k >= 0; k-- {
+		if strings.HasPrefix(hl[k], `<span class="ail">`) && strings.TrimSpace(session.StripANSI(raw[k])) == "" {
+			if k+1 >= len(hl) || !strings.HasPrefix(hl[k+1], `<span class="ail">`) {
+				hl[k] = strings.TrimSuffix(strings.TrimPrefix(hl[k], `<span class="ail">`), `</span>`)
+			}
+		}
+	}
+	return strings.Join(hl, "\n")
 }

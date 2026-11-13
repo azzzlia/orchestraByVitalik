@@ -38,6 +38,12 @@ func TestDensityEstimateCountsParallelBranches(t *testing.T) {
 	require.Equal(t, 3, est.Branches)
 	require.InDelta(t, 1.0, est.AIHours, 0.01)
 	require.InDelta(t, 2.5, est.AgentHours, 0.01)
+	// parallel hours: two sessions at once count twice; the subagent apart
+	ses, subs := tr.AgentHoursSince(base.Add(-time.Hour))
+	require.InDelta(t, 2.0, ses, 0.01)
+	require.InDelta(t, 0.5, subs, 0.01)
+	ses, _ = tr.AgentHoursSince(base.Add(30 * time.Minute)) // from the middle: the rest only
+	require.InDelta(t, 1.0, ses, 0.01)
 	require.InDelta(t, 2.5, est.Value, 0.01)
 
 	// A gap longer than 10 minutes splits a branch: idle time does not count.

@@ -134,9 +134,12 @@ func (s sgr) style() string {
 // ansiToHTML renders lines; cx, cy is the cursor cell (-1 to hide it).
 func ansiToHTML(lines []string, cx, cy int) string {
 	var out strings.Builder
+	// tmux capture-pane -e carries attributes over line ends (it only emits a code when
+	// something changes), so the state lives across rows: a message drawn on a
+	// background keeps it on its wrapped second line.
+	var st sgr
 	for row, line := range lines {
-		var st sgr
-		open := ""
+		open := st.style()
 		col := 0
 		cursorDone := row != cy || cx < 0
 		var run strings.Builder

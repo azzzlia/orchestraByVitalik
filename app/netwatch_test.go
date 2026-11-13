@@ -29,6 +29,9 @@ box() { printf '\n────────────────\n❯ \n──
 listen() { while IFS= read -r line; do echo "$1: $line" >> "$D/got.log"; printf '\n❯ %s\n\n● ок\n' "$line"; box; done; }
 if [[ "$*" == *--resume* ]]; then printf 'resumed\n'; box; listen resumed; fi
 mode="$(cat "$D/mode")"
+if [ "$mode" = asleep ]; then
+  printf '❯ проверь задачу\n\n● Готово, жду ревью.\n  ⎿ Connection lost while your computer was asleep\n'; box; listen first
+fi
 if [ "$mode" = neterr ]; then
   printf '❯ проверь задачу\n\n● Bash(curl https://git.example.com)\n  ⎿ curl: (6) Could not resolve host: git.example.com\n'; box; listen first
 fi
@@ -150,6 +153,31 @@ func TestVPNRecoveryNudgesSessionStoppedOnNetworkError(t *testing.T) {
 	runUntil(t, h, 20*time.Second, func() bool { return strings.Contains(readLog(got), "first: [squad] Сеть/VPN") })
 	require.NotContains(t, readLog(got), "resumed")
 	require.Empty(t, h.netRecover)
+}
+
+// After the Mac slept, a session showing «Connection lost while your computer was asleep»
+// is restarted (fresh MCP connections) and asked to continue — no VPN check needed.
+func TestRecoveryAfterSleep(t *testing.T) {
+	shortNetTimers(t)
+	h, inst, got := netTestHome(t, "asleep")
+	h.appConfig.VPNCheck = nil
+	runUntil(t, h, 10*time.Second, func() bool {
+		n, mcp := inst.TurnNetworkError()
+		return inst.Status == session.Ready && inst.InputReady() && n && mcp
+	})
+	tick(h)
+	require.Empty(t, h.netRecover, "no sleep — nothing to recover")
+	h.mu.Lock()
+	h.lastNetTick, h.lastNetMono = time.Now().Round(0).Add(-30*time.Minute), time.Now().Add(-30*time.Minute)
+	h.mu.Unlock()
+	tick(h)
+	require.Empty(t, h.netRecover, "Squad busy for 30 min (both clocks moved) is not a sleep")
+	h.mu.Lock()
+	h.lastNetTick = time.Now().Round(0).Add(-30 * time.Minute) // the previous tick was before the sleep
+	h.mu.Unlock()
+	tick(h)
+	require.Contains(t, h.netRecover, inst)
+	runUntil(t, h, 40*time.Second, func() bool { return strings.Contains(readLog(got), "resumed: [squad]") })
 }
 
 // While the VPN is down, sessions are left alone: nothing is typed anywhere.

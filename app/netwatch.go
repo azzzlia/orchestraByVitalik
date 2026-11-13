@@ -69,6 +69,13 @@ func (m *home) setupNetwork() {
 	if t := m.appConfig.MCPToolTimeout(); t > 0 && os.Getenv("MCP_TOOL_TIMEOUT") == "" {
 		tmux.ExtraEnv = append(tmux.ExtraEnv, fmt.Sprintf("MCP_TOOL_TIMEOUT=%d", t*1000))
 	}
+	// MCP servers that reach internal stands over VPN can take longer than Claude Code's
+	// default to connect when many sessions start at once (after a wake or a restart):
+	// give them a minute before Claude Code gives up on them.
+	if os.Getenv("MCP_TIMEOUT") == "" {
+		tmux.ExtraEnv = append(tmux.ExtraEnv, "MCP_TIMEOUT=60000")
+	}
+	applyClaudeProxy(m.appConfig.ClaudeProxy, m.appConfig.NoProxy)
 	hosts := m.appConfig.VPNCheck
 	if len(hosts) == 0 {
 		return
@@ -110,20 +117,62 @@ func (m *home) vpnDown() bool {
 	return known && !up
 }
 
+// sleepGap: ticks this far apart (wall clock) mean the Mac slept in between.
+const sleepGap = 2 * time.Minute
+
+// noticeSleep: after the Mac slept, sessions show «Connection lost while your computer
+// was asleep» or hang on dead connections — the same recovery as after a VPN outage.
+// Wall clock on purpose: Go's monotonic clock stops while macOS sleeps.
+func (m *home) noticeSleep(now time.Time) {
+	wall := now.Round(0)
+	prev, prevMono := m.lastNetTick, m.lastNetMono
+	m.lastNetTick, m.lastNetMono = wall, now
+	if prev.IsZero() || wall.Sub(prev) < sleepGap {
+		return
+	}
+	// A real sleep: the wall clock jumped while the monotonic one (stopped during sleep on
+	// macOS) did not. Squad itself being stuck that long moves both — that is not a sleep.
+	if !prevMono.IsZero() && now.Sub(prevMono) > wall.Sub(prev)/2 {
+		log.WarningLog.Printf("no network check for %s — Squad was busy, not asleep", wall.Sub(prev).Round(time.Second))
+		return
+	}
+	log.InfoLog.Printf("the Mac slept %s — checking the sessions as after an outage", wall.Sub(prev).Round(time.Minute))
+	session.AppendEvent(session.Event{At: now, Kind: "status", Text: fmt.Sprintf("мак спал %s — проверяю сессии", wall.Sub(prev).Round(time.Minute))})
+	if m.netRecover == nil {
+		m.netRecover = map[*session.Instance]*netRecovery{}
+	}
+	for _, inst := range m.list.GetInstances() {
+		if _, ok := m.netRecover[inst]; !ok && inst.Started() && !inst.Paused() {
+			m.netRecover[inst] = &netRecovery{sig: inst.TurnSignature()}
+		}
+	}
+	m.afterSleep = true
+	if !m.netDown {
+		m.netUpAt = now // the network «came back» now; the VPN prober corrects it if it is down
+	}
+}
+
 // handleNetwork runs every monitor tick with m.mu held.
 func (m *home) handleNetwork() {
+	m.noticeSleep(time.Now())
 	known, up, changedAt := m.net.get()
 	if !known {
+		if len(m.netRecover) > 0 {
+			m.recoverAfterOutage(time.Now()) // no VPN check configured: still recover after a sleep
+		}
 		return
 	}
 	if !up {
 		if !m.netDown {
 			m.netDown = true
 			m.netRecover = map[*session.Instance]*netRecovery{}
-			m.netActions = nil
+			m.netActions, m.afterSleep = nil, false
 			session.AppendEvent(session.Event{At: changedAt, Kind: "vpn_down"})
 			notifyUser("orchestraByVitalik: VPN отвалился", "Сессии подождут. Когда сеть вернётся, оркестр сам их растормошит.")
+			m.vpnFix = vpnFixer{}
+			go captureVPNDrop(changedAt, m.appConfig.VPNCheck)
 		}
+		m.vpnFix.tick(m.appConfig.VPNApp, changedAt, time.Now())
 		// Remember how each session looked when the network went away (also those
 		// that start during the outage).
 		for _, inst := range m.list.GetInstances() {
@@ -137,6 +186,13 @@ func (m *home) handleNetwork() {
 		m.netDown = false
 		m.netUpAt = changedAt
 		session.AppendEvent(session.Event{At: changedAt, Kind: "vpn_up"})
+		if m.vpnFix.restarts > 0 {
+			log.InfoLog.Printf("VPN is back after %d reopen(s) of %s", m.vpnFix.restarts, m.appConfig.VPNApp)
+		}
+		if m.vpnFix.warned {
+			notifyUser("orchestraByVitalik: VPN снова работает", "Подключение вернулось.")
+		}
+		m.vpnFix = vpnFixer{}
 	}
 	if len(m.netRecover) > 0 {
 		m.recoverAfterOutage(time.Now())
@@ -167,9 +223,16 @@ func (m *home) recoverAfterOutage(now time.Time) {
 	if sinceUp > netGiveUp {
 		m.netRecover = map[*session.Instance]*netRecovery{}
 	}
+	if len(m.netRecover) == 0 && len(m.netActions) == 0 {
+		m.afterSleep = false
+	}
 	if len(m.netRecover) == 0 && len(m.netActions) > 0 {
-		notifyUser("orchestraByVitalik: VPN вернулся", strings.Join(m.netActions, "; "))
-		m.netActions = nil
+		title := "orchestraByVitalik: VPN вернулся"
+		if m.afterSleep {
+			title = "orchestraByVitalik: после сна"
+		}
+		notifyUser(title, strings.Join(m.netActions, "; "))
+		m.netActions, m.afterSleep = nil, false
 	}
 }
 
@@ -251,8 +314,10 @@ func (m *home) nudge(inst *session.Instance, restart bool) string {
 	return "попросил продолжить"
 }
 
-// notifyUser shows a macOS notification (no-op elsewhere).
-func notifyUser(title, msg string) {
+// notifyUser shows a macOS notification (no-op elsewhere); a variable for tests.
+var notifyUser = notifyUserOS
+
+func notifyUserOS(title, msg string) {
 	if runtime.GOOS != "darwin" {
 		log.InfoLog.Printf("notify: %s — %s", title, msg)
 		return

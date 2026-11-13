@@ -31,6 +31,9 @@ type Capacity struct {
 
 // ComputeCapacity counts busy worker sessions (working, waiting by itself, or
 // waiting for the user) against maxActive, and checks the limits.
+// diskFree is swappable in tests: the real disk of the machine must not decide them.
+var diskFree = DiskFreeGB
+
 func ComputeCapacity(snap *StatusSnapshot, maxActive int) Capacity {
 	c := Capacity{Max: maxActive, Usage5h: snap.Usage5hPct, UsageWk: snap.UsageWeekPct}
 	for _, s := range snap.Sessions {
@@ -48,7 +51,7 @@ func ComputeCapacity(snap *StatusSnapshot, maxActive int) Capacity {
 	c.Free = c.Max - c.Busy
 	c.DiskFreeGB = -1
 	if home, err := os.UserHomeDir(); err == nil {
-		c.DiskFreeGB = DiskFreeGB(home)
+		c.DiskFreeGB = diskFree(home)
 	}
 	switch {
 	case c.DiskFreeGB >= 0 && c.DiskFreeGB < DiskStopGB:

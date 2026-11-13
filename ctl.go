@@ -218,6 +218,24 @@ var ctlSendCmd = &cobra.Command{
 			return fmt.Errorf("#%d показывает запрос разрешения — текст мог бы его подтвердить, не отправляю. Разрешения подтверждает только пользователь", e.Number)
 		}
 		target := "=" + name + ":"
+		// Our own earlier message left in the box (a send that failed half-way) is not
+		// the user's draft: erase it and send again, instead of refusing every retry.
+		if box := session.InputBoxText(raw); box != "" && sentBefore(name, box) {
+			if err := eraseInput(name, target, box); err != nil {
+				return fmt.Errorf("#%d %s: %v", e.Number, e.Title, err)
+			}
+			raw, _ = capture(name, false)
+		}
+		// Text drawn dim (an unfocused session draws typed text like a greyed-out
+		// suggestion): with --force it is erased all the same. Backspaces do not touch
+		// a real suggestion, so erasing one is harmless.
+		if box := session.InputBoxText(raw); box != "" && session.ExtractDraft(raw) == "" && ctlForce {
+			if err := eraseInput(name, target, box); err == nil {
+				session.SaveWipedDraft(e.Title, box)
+				fmt.Printf("--force: стёр текст в поле ввода #%d («%s»), он сохранён в ~/.claude-squad/wiped-drafts.log\n", e.Number, box)
+			}
+			raw, _ = capture(name, false)
+		}
 		if d := session.ExtractDraft(raw); d != "" {
 			stale := ctlForce
 			if !stale && e.HasDraft {
@@ -234,39 +252,67 @@ var ctlSendCmd = &cobra.Command{
 			session.SaveWipedDraft(e.Title, d)
 			fmt.Printf("стёр забытый черновик в #%d («%s»), он сохранён в ~/.claude-squad/wiped-drafts.log\n", e.Number, d)
 		}
+		rememberSent(name, text)
 		if err := exec.Command("tmux", "send-keys", "-t", target, "-l", text).Run(); err != nil {
 			return err
 		}
 		// Make sure the text landed in the box before pressing Enter.
 		// Claude Code can take a few seconds to show typed text (right after a start or
 		// a trust question): wait up to 10 s, or the text lands later without its Enter.
+		// Judged by the text itself, not its style: in a terminal without focus Claude
+		// Code draws typed text dim, like a greyed-out suggestion.
 		typed := false
+		box := ""
 		for k := 0; k < 50 && !typed; k++ {
 			time.Sleep(200 * time.Millisecond)
-			if raw, err := capture(name, false); err == nil && session.ExtractDraft(raw) != "" {
-				typed = true
+			if raw, err := capture(name, false); err == nil {
+				box = session.InputBoxText(raw)
+				typed = boxHas(box, text)
 			}
 		}
+		// Our text landed after something else: a draft the user left, drawn dim in an
+		// unfocused terminal and so taken for a suggestion. Take ours back out and leave
+		// the draft alone, rather than sending the two glued together.
+		if typed && !boxStarts(box, text) {
+			_ = exec.Command("tmux", "send-keys", "-t", target, "-N", strconv.Itoa(len([]rune(text))), "BSpace").Run()
+			return fmt.Errorf("в поле ввода #%d уже лежит текст («%s») — НЕ отправлено. Если это забытый текст, повтори с --force (он сохранится в wiped-drafts.log)", e.Number, strings.TrimSpace(strings.Replace(box, strings.Join(strings.Fields(text), " "), "", 1)))
+		}
 		if !typed {
-			return fmt.Errorf("#%d %s: текст не появился в поле ввода — агент не принимает ввод, попробуй позже%s", e.Number, e.Title, dumpScreen(name, "not-typed"))
+			msg := dumpScreen(name, "not-typed")
+			if raw, err := capture(name, false); err == nil { // a part of it may have landed: don't leave it there
+				if box := session.InputBoxText(raw); box != "" && boxHas(text, box) {
+					_ = eraseInput(name, target, box)
+				}
+			}
+			return fmt.Errorf("#%d %s: текст не появился в поле ввода — агент не принимает ввод, попробуй позже%s", e.Number, e.Title, msg)
 		}
 		// Press Enter and check the box got emptied; one retry, then an honest error.
+		// Gone = neither end of the text is in the box, and it stays gone a moment later
+		// (a long text scrolls inside the box; Claude Code may still be redrawing).
+		left := func() bool {
+			raw, err := capture(name, false)
+			return err != nil || session.BoxHas(session.InputBoxText(raw), text)
+		}
 		sent := false
-		for attempt := 0; attempt < 2 && !sent; attempt++ {
+		for attempt := 0; attempt < 3 && !sent; attempt++ {
 			if err := exec.Command("tmux", "send-keys", "-t", target, "Enter").Run(); err != nil {
 				return err
 			}
 			for k := 0; k < 20; k++ {
 				time.Sleep(200 * time.Millisecond)
-				if raw, err := capture(name, false); err == nil && session.ExtractDraft(raw) == "" {
-					sent = true
-					break
+				if !left() {
+					time.Sleep(600 * time.Millisecond)
+					if !left() {
+						sent = true
+						break
+					}
 				}
 			}
 		}
 		if !sent {
 			return fmt.Errorf("#%d %s: текст лежит в поле ввода, Enter не сработал — НЕ отправлено%s", e.Number, e.Title, dumpScreen(name, "enter-lost"))
 		}
+		forgetSent(name, text) // delivered: the same words typed later by the user are theirs
 		fmt.Printf("отправлено в #%d %s\n", e.Number, e.Title)
 		return nil
 	},
@@ -324,6 +370,90 @@ func checkSendText(text string) error {
 }
 
 // eraseInput clears unsent text from the agent's input box (backspaces from the end).
+// boxHas: the input box text contains msg (spaces normalised; a long message wraps
+// and may scroll inside the box, so its first 40 characters are enough).
+func boxHas(box, msg string) bool {
+	b, m := strings.Join(strings.Fields(box), " "), strings.Join(strings.Fields(msg), " ")
+	if b == "" || m == "" {
+		return false
+	}
+	if r := []rune(m); len(r) > 40 {
+		m = string(r[:40])
+	}
+	return strings.Contains(b, m)
+}
+
+// boxStarts: the box text begins with msg (nothing of someone else's before it).
+func boxStarts(box, msg string) bool {
+	b, m := strings.Join(strings.Fields(box), " "), strings.Join(strings.Fields(msg), " ")
+	if r := []rune(m); len(r) > 40 {
+		m = string(r[:40])
+	}
+	return m != "" && strings.HasPrefix(b, m)
+}
+
+func sameText(a, b string) bool {
+	return b != "" && strings.Join(strings.Fields(a), " ") == strings.Join(strings.Fields(b), " ")
+}
+
+// rememberSent / sentBefore / forgetSent: the last few texts cs ctl send typed into a
+// session and did not see delivered, so a copy left behind by a failed attempt is
+// recognised as ours, not as the user's draft.
+func sentPath(name string) string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".claude-squad", "ctl-sent", name)
+}
+
+func readSent(name string) []string {
+	b, err := os.ReadFile(sentPath(name))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, l := range strings.Split(string(b), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func writeSent(name string, list []string) {
+	if len(list) > 5 {
+		list = list[len(list)-5:]
+	}
+	if len(list) == 0 {
+		_ = os.Remove(sentPath(name))
+		return
+	}
+	p := sentPath(name)
+	_ = os.MkdirAll(filepath.Dir(p), 0700)
+	_ = os.WriteFile(p, []byte(strings.Join(list, "\n")+"\n"), 0600)
+}
+
+func rememberSent(name, text string) { writeSent(name, append(readSent(name), text)) }
+
+func forgetSent(name, text string) {
+	var keep []string
+	for _, t := range readSent(name) {
+		if !sameText(t, text) {
+			keep = append(keep, t)
+		}
+	}
+	writeSent(name, keep)
+}
+
+// sentBefore: the box holds one of our undelivered texts (the whole of it, or a long
+// one's visible end).
+func sentBefore(name, box string) bool {
+	for _, t := range readSent(name) {
+		if sameText(box, t) || (len([]rune(t)) > 40 && session.BoxHas(box, t) && len([]rune(box)) <= len([]rune(t))+5) {
+			return true
+		}
+	}
+	return false
+}
+
 func eraseInput(name, target, draft string) error {
 	for attempt := 0; attempt < 2; attempt++ {
 		n := len([]rune(draft)) + strings.Count(draft, "\n") + 2
@@ -336,8 +466,13 @@ func eraseInput(name, target, draft string) error {
 		if err != nil {
 			return err
 		}
-		if draft = session.ExtractDraft(raw); draft == "" {
+		// Gone when nothing typed is left: an empty box may show a grey suggestion or
+		// placeholder, which is not the text being erased.
+		if session.ExtractDraft(raw) == "" && !boxHas(session.InputBoxText(raw), draft) {
 			return nil
+		}
+		if d := session.ExtractDraft(raw); d != "" {
+			draft = d
 		}
 	}
 	return fmt.Errorf("не получилось стереть текст в поле ввода («%s») — не отправляю", draft)
@@ -464,6 +599,34 @@ var ctlGroupCmd = &cobra.Command{
 		}
 		start := time.Now()
 		if _, err := session.SubmitSessionRequest(session.SessionRequest{Title: e.Title, Group: g, SetGroup: true}); err != nil {
+			return err
+		}
+		return waitRequest(e.Title, start, 15*time.Second, fmt.Sprintf("запрос принят: #%d %s", e.Number, e.Title), "выполнится, когда Squad освободится")
+	},
+}
+
+var ctlNoteCmd = &cobra.Command{
+	Use:   "note <номер> <текст>",
+	Short: "Заметка сессии — зачем она и к какой задаче (видна в списке и в веб-интерфейсе); \"-\" — стереть",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		note := strings.TrimSpace(strings.Join(args[1:], " "))
+		if note == "-" {
+			note = ""
+		}
+		if r := []rune(note); len(r) > 300 {
+			return fmt.Errorf("заметка длиннее 300 символов — сократи до сути: зачем сессия и к какой задаче")
+		}
+		snap, err := loadSnapshot()
+		if err != nil {
+			return err
+		}
+		e, err := findSession(snap, args[0])
+		if err != nil {
+			return err
+		}
+		start := time.Now()
+		if _, err := session.SubmitSessionRequest(session.SessionRequest{Title: e.Title, Note: note, SetNote: true}); err != nil {
 			return err
 		}
 		return waitRequest(e.Title, start, 15*time.Second, fmt.Sprintf("запрос принят: #%d %s", e.Number, e.Title), "выполнится, когда Squad освободится")
@@ -754,11 +917,11 @@ func init() {
 	f.StringVar(&ctlNewProg, "program", "", "программа вместо claude по умолчанию")
 	f.BoolVar(&ctlNewCond, "conductor", false, "это дирижёр")
 	f.BoolVar(&ctlNewAsst, "assistant", false, "это помощник пользователя (дирижёр в него не пишет)")
-	for _, c := range []*cobra.Command{ctlListCmd, ctlReadCmd, ctlSendCmd, ctlNewCmd, ctlKillCmd, ctlWakeCmd, ctlRestartCmd, ctlFocusCmd, ctlMarkCmd, ctlMRCmd, ctlGroupCmd} {
+	for _, c := range []*cobra.Command{ctlListCmd, ctlReadCmd, ctlSendCmd, ctlNewCmd, ctlKillCmd, ctlWakeCmd, ctlRestartCmd, ctlFocusCmd, ctlMarkCmd, ctlMRCmd, ctlGroupCmd, ctlNoteCmd} {
 		c.SilenceUsage = true
 		c.SilenceErrors = true
 	}
-	ctlCmd.AddCommand(ctlListCmd, ctlReadCmd, ctlSendCmd, ctlNewCmd, ctlKillCmd, ctlWakeCmd, ctlRestartCmd, ctlFocusCmd, ctlMarkCmd, ctlMRCmd, ctlGroupCmd)
+	ctlCmd.AddCommand(ctlListCmd, ctlReadCmd, ctlSendCmd, ctlNewCmd, ctlKillCmd, ctlWakeCmd, ctlRestartCmd, ctlFocusCmd, ctlMarkCmd, ctlMRCmd, ctlGroupCmd, ctlNoteCmd)
 	rootCmd.AddCommand(ctlCmd)
 }
 

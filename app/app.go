@@ -108,6 +108,11 @@ type home struct {
 	// promptAfterName tracks if we should enter prompt mode after naming
 	promptAfterName bool
 
+	// lastKeyAt: the user's last key press in Squad; windowNotified: the user was told
+	// that an open window holds up cs ctl new/kill (see unblockWindows).
+	lastKeyAt      time.Time
+	windowNotified bool
+
 	// editingNote is true while the prompt overlay is used to edit a session description
 	editingNote bool
 	// renaming is true while the prompt overlay is used to rename a session
@@ -158,15 +163,17 @@ type home struct {
 	focusUntil  time.Time
 	// status history and the morning report (see report.go)
 	statusLog         map[*session.Instance]*statusTrack
+	push              *pusher // notifications to the phone (push.go)
 	morningCheckedDay string
 	morningPending    bool
 	// token limits (see usage.go)
 	usage usageState
-	// overview pet (see pet.go)
+	// density score (see density.go)
 	density          float64
 	hasDensity       bool
 	densityTracker   *session.DensityTracker
 	t39              float64
+	parAgent, parSub, parGit float64 // today's parallel hours: agent sessions, their subagents, hours with commits
 	hasT39           bool
 	limitTracks      map[*session.Instance]*limitTrack
 	digestSentAt     time.Time
@@ -178,7 +185,6 @@ type home struct {
 	densityCmdNow    int               // commit in the current hour: -1 unknown, 0 no, 1 yes
 	densityCmdHour   string            // the hour ("2006-01-02 15") densityCmdNow is about
 	diffErrLogged    map[string]string // last diff-stats error logged per session
-	petPhrases       ui.PetPhrases     // your own pet phrases (pet-phrases.json)
 	emptyHourSent    string
 	wipesReadAt      time.Time
 	densityRunAt     time.Time
@@ -188,8 +194,23 @@ type home struct {
 	net        netProbe
 	netDown    bool
 	netUpAt    time.Time
+	// lastNetTick: wall-clock time of the previous monitor tick, to notice that the Mac slept
+	lastNetTick time.Time
+	lastNetMono time.Time // the same moment with its monotonic reading
+	afterSleep  bool // the recovery in progress is after a sleep, not a VPN outage
 	netRecover map[*session.Instance]*netRecovery
 	netActions []string
+	// guard: sessions stuck on the network while the VPN is up (see guard.go)
+	guard           map[*session.Instance]*guardRec
+	guardAt         time.Time
+	lastStaleNoteAt time.Time
+	vpnFix     vpnFixer
+	// the conductor waiting for the user: which status, since when, reminded already
+	condWaitKey      string
+	condWaitSince    time.Time
+	condWaitReminded bool
+	condWaitOff      time.Time // when the conductor stopped waiting (zero: still waits)
+	condTurnAt       time.Time // the conductor's ActiveAt counted as its last finished turn
 
 	// keySent is used to manage underlining menu items
 	keySent bool
@@ -539,6 +560,33 @@ func (m *home) waitDetached(ch chan struct{}, what string, agent bool, detach fu
 	m.detach = nil
 }
 
+// unblockWindows: cs ctl new/kill wait while a window is open in Squad, and a window
+// left open stalls the conductor for hours (bug 27.10). A yes/no confirmation nobody
+// has touched for 2 minutes is closed as «no» (nothing is lost); a window with typing
+// (name, prompt, note) stays, and the user is told once what it holds up.
+func (m *home) unblockWindows(now time.Time) {
+	if m.state == stateDefault || m.state == stateHelp {
+		m.windowNotified = false
+		return
+	}
+	n, oldest := session.WaitingListRequests()
+	if n == 0 {
+		return
+	}
+	idle := now.Sub(m.lastKeyAt)
+	if m.state == stateConfirm && oldest >= 2*time.Minute && idle >= 2*time.Minute {
+		log.InfoLog.Printf("closing a confirmation nobody answered for %s: %d cs ctl request(s) wait", idle.Round(time.Second), n)
+		m.state = stateDefault
+		m.confirmationOverlay = nil
+		m.menu.SetState(ui.StateDefault)
+		return
+	}
+	if !m.windowNotified && oldest >= 3*time.Minute && idle >= 3*time.Minute {
+		m.windowNotified = true
+		notifyUser("Squad ждёт тебя", fmt.Sprintf("В Squad открыто поле ввода — дирижёр не может открыть или закрыть сессию (%d в очереди). Закончи ввод или нажми Esc", n))
+	}
+}
+
 // uiWaitingDesc describes what the UI is waiting for, for cs ctl.
 func (m *home) uiWaitingDesc() string {
 	if m.uiWaiting != "" {
@@ -673,10 +721,26 @@ func (m *home) runDailyJobs() {
 		if data, err := os.ReadFile(stamp); err == nil && strings.TrimSpace(string(data)) == today {
 			continue
 		}
-		title := strings.TrimSpace(job.Title + " " + now.Format("02.01"))
-		if _, err := session.SubmitSessionRequest(session.SessionRequest{
-			Title: title, Dir: job.Dir, Prompt: job.Prompt, Color: "cyan",
-			Note: "ежедневная задача " + job.Name,
+		// One session per job, reused every day: today's task goes into the existing one
+		// (woken if it sleeps). A new session each day piled up «Отчёт … 31.10», «… 01.11»
+		// and the user wrote into one while the next day's job opened another.
+		note := "ежедневная задача " + job.Name
+		var prev *session.Instance
+		for _, inst := range m.list.GetInstances() {
+			if inst.Note == note && inst.Started() && (prev == nil || inst.CreatedAt.After(prev.CreatedAt)) {
+				prev = inst // the newest, if several piled up before
+			}
+		}
+		if prev != nil {
+			prev.PendingPrompt, prev.PendingTries = job.Prompt+" (за "+now.Format("02.01")+")", 0
+			if prev.Paused() {
+				if err := prev.Resume(); err != nil {
+					log.WarningLog.Printf("daily job %s: wake %q: %v", job.Name, prev.Title, err)
+				}
+			}
+			log.InfoLog.Printf("daily job %s: today's task goes to %q", job.Name, prev.Title)
+		} else if _, err := session.SubmitSessionRequest(session.SessionRequest{
+			Title: strings.TrimSpace(job.Title), Dir: job.Dir, Prompt: job.Prompt, Color: "cyan", Note: note,
 		}); err != nil {
 			log.WarningLog.Printf("daily job %s: %v", job.Name, err)
 			continue
@@ -711,10 +775,10 @@ func (m *home) takeFocus() tea.Cmd {
 // another session. A request for the session the user is inside waits.
 func (m *home) takeControlRequests() bool {
 	reqs := session.TakeSessionRequestsWhere(func(r session.SessionRequest) bool {
-		if !(r.Wake || r.Restart || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup) {
+		if !(r.Wake || r.Restart || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup || r.SetNote) {
 			return false
 		}
-		return m.attached == nil || m.attached.Title != r.Title || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup
+		return m.attached == nil || m.attached.Title != r.Title || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup || r.SetNote
 	})
 	return m.applyRequests(reqs)
 }
@@ -723,7 +787,7 @@ func (m *home) takeControlRequests() bool {
 // window is open, so the list never changes under the user.
 func (m *home) takeSessionRequests() bool {
 	return m.applyRequests(session.TakeSessionRequestsWhere(func(r session.SessionRequest) bool {
-		return !(r.Wake || r.Restart || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup)
+		return !(r.Wake || r.Restart || r.Focus || r.Mark != "" || r.MR != "" || r.SetGroup || r.SetNote)
 	}))
 }
 
@@ -743,6 +807,21 @@ func (m *home) applyRequests(reqs []session.SessionRequest) bool {
 					m.focusTarget, m.focusUntil = inst, time.Now().Add(30*time.Second)
 					created = true
 				}
+			}
+			continue
+		}
+		if req.SetNote {
+			found := false
+			for _, inst := range m.list.GetInstances() {
+				if inst.Title == req.Title {
+					found = true
+					inst.Note = req.Note
+					session.WriteCtlResult(req.Title, "ок, заметка обновлена")
+					created = true
+				}
+			}
+			if !found {
+				session.WriteCtlResult(req.Title, "ошибка: такой сессии нет")
 			}
 			continue
 		}
@@ -980,6 +1059,10 @@ func (m *home) maybeWakeConductor() {
 	if mrNote != "" {
 		lines = append(lines, mrNote)
 	}
+	staleNote := m.staleWaitNote(time.Now())
+	if staleNote != "" {
+		lines = append(lines, staleNote)
+	}
 	if len(lines) == 0 && inbox == "" {
 		if !inboxBusy {
 			m.lastDigestAt = time.Now()
@@ -1014,6 +1097,9 @@ func (m *home) maybeWakeConductor() {
 	m.digestSentAt, m.digestAcked, m.digestWarned = time.Now(), false, false
 	if mrNote != "" {
 		m.lastMRNoteAt = time.Now()
+	}
+	if staleNote != "" {
+		m.lastStaleNoteAt = time.Now()
 	}
 	if upd != "" {
 		m.updateNoteSent()
@@ -1295,12 +1381,6 @@ func (m *home) handleOverviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		clamp()
 		m.list.SetSelectedInstance(m.overviewIdx)
 		return m, m.openReply(instances[m.overviewIdx])
-	case "p":
-		m.appConfig.Pet = ui.NextPet(m.appConfig.Pet, m.appConfig.PetDir != "")
-		if err := config.SaveConfig(m.appConfig); err != nil {
-			log.WarningLog.Printf("save pet: %v", err)
-		}
-		return m, nil
 	case "r", "C", "e", "D", "R":
 		if n == 0 {
 			return m, nil
@@ -1317,6 +1397,7 @@ func (m *home) handleOverviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
+	m.lastKeyAt = time.Now()
 	// Shortcuts work on the Russian layout too: й → q, о → j, м → v… (not while typing text).
 	if m.state == stateDefault || m.state == stateHelp {
 		msg = latinKey(msg)
@@ -2148,6 +2229,7 @@ func (m *home) processMetadata(results []instanceMetaResult) {
 		if r.updated {
 			r.instance.SetStatus(session.Running)
 			r.instance.IdleSince = time.Now()
+			r.instance.IdleTurn = session.ConductorTurns
 			// the screen also changes by itself (status line, pets): count only real work,
 			// when Claude shows its spinner ("✶ Cultivating… (1m 40s", "esc to interrupt")
 			if workingRe.MatchString(r.content) {
@@ -2156,6 +2238,12 @@ func (m *home) processMetadata(results []instanceMetaResult) {
 		} else if r.hasPrompt {
 			r.instance.TapEnter()
 		} else {
+			// The conductor finished a turn — a real one, with its spinner seen (ActiveAt moved),
+			// not a pause after the box was typed into: it had a chance to handle the workers.
+			if r.instance.Conductor && r.instance.Status == session.Running && r.instance.ActiveAt.After(m.condTurnAt) {
+				session.ConductorTurns++
+				m.condTurnAt = r.instance.ActiveAt
+			}
 			r.instance.SetStatus(session.Ready)
 		}
 		if r.diffStats == nil {
@@ -2185,12 +2273,14 @@ func (m *home) processMetadata(results []instanceMetaResult) {
 	// so they never mix with what the user is doing. They wait in the queue.
 	// A text window (help, «что было»), the overview and the queue do not depend on
 	// which session is selected; only prompts, confirmations and naming do.
+	m.unblockWindows(time.Now())
 	if (m.state == stateDefault || m.state == stateHelp) && !m.instanceStarting {
 		if m.takeSessionRequests() {
 			recapChanged = true
 		}
 	}
 	m.handleNetwork()
+	m.guardNetStuck(time.Now())
 	m.handleUsage()
 	m.refreshDensity()
 	m.updateConductorActive()
@@ -2314,7 +2404,7 @@ func (m *home) view() string {
 	} else if m.overview {
 		mainView = lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.petOverlay(ui.RenderOverview(m.list.GetInstances(), m.overviewIdx, m.winW, m.winH-1), m.winW, m.winH-1),
+			ui.RenderOverview(m.list.GetInstances(), m.overviewIdx, m.winW, m.winH-1),
 			m.errBox.String(),
 		)
 	}

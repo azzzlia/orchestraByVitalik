@@ -138,10 +138,18 @@ if ev == "stop":
     msg, sound = "Готово, ждёт тебя", "Glass"
     if found and inst.get("conductor"):
         text = last_assistant_text()
-        if text and "НУЖЕН ТЫ" not in text:
-            msg, sound = "Дирижёр ответил", ""   # без звука: тебя он не зовёт
-        elif text:
-            msg = "⚠ Дирижёр: нужен ты"
+        if not text:
+            # Журнал не прочитался (ещё не записан?) — лучше общее уведомление, чем пропустить зов.
+            msg, sound = "Дирижёр закончил — загляни", "Glass"
+        elif "НУЖЕН ТЫ" not in text:
+            # Тебя он не зовёт — без уведомления: уведомляем, только когда дирижёр ждёт тебя.
+            log("  дирижёр ответил, но не зовёт — без уведомления")
+            sys.exit(0)
+        else:
+            msg, sound = "⚠ Дирижёр ждёт тебя", "Funk"
+            m = re.search(r"НУЖЕН ТЫ\**\s*[:—-]?\s*\**\s*([^\n]+)", text)
+            if m:  # причина — в подзаголовок, чтобы было понятно, зачем возвращаться
+                subtitle = m.group(1).strip(" *")[:160]
     elif found and inst.get("assistant"):
         text = last_assistant_text()
         if text and "НУЖЕН ТЫ" in text:
@@ -165,7 +173,11 @@ if notifier and found and os.path.exists(cs):
         args[3:3] = ["-subtitle", subtitle]
     r = subprocess.run(args, capture_output=True, text=True)
     log("  terminal-notifier: %s код=%s %s" % (msg, r.returncode, (r.stderr or "").strip()[:200]))
-    sys.exit(0)
+    if r.returncode == 0:
+        sys.exit(0)
+    # Уведомления terminal-notifier выключены в настройках macOS (или он упал) — показываем
+    # обычным уведомлением, без клика: лучше без перехода, чем никакого.
+    log("  → запасной вариант: osascript")
 
 esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
 script = 'display notification "%s" with title "%s"' % (esc(msg), esc(title))

@@ -123,15 +123,95 @@ func findInputLine(lines []string) int {
 		if strings.TrimSpace(StripANSI(lines[n][:idx])) != "" {
 			continue
 		}
-		// "❯ 1. Yes" is the cursor of a choice menu (permission prompt), not the input box.
+		// "❯ 2. No" is the cursor of a choice menu (permission prompt, question), not the
+		// input box. The input box sits right under a "───" rule; a menu option does not.
+		// So a message that merely starts with "1." («1. только давно… 2. да») is input.
 		after := strings.ReplaceAll(StripANSI(lines[n][idx+len("❯"):]), "\u00a0", " ")
-		if menuOptionRe.MatchString(after) {
+		if menuOptionRe.MatchString(after) && !ruleAbove(lines, n) {
 			return -1
 		}
 		return n
 	}
+	return boxedInputLine(lines)
+}
+
+// ruleAbove: the nearest non-empty line above line n is a "───" rule (the top of the
+// input box).
+func ruleAbove(lines []string, n int) bool {
+	for k := n - 1; k >= 0 && k >= n-2; k-- {
+		t := strings.TrimSpace(StripANSI(lines[k]))
+		if t == "" {
+			continue
+		}
+		return strings.HasPrefix(t, "───")
+	}
+	return false
+}
+
+// boxedInputLine finds the input line of a long (multi-line) draft that starts higher
+// than the bottom 16 lines: the box is drawn between two "───" rules near the bottom,
+// and the input line is the first line under the upper rule.
+func boxedInputLine(lines []string) int {
+	bottom := -1
+	for n := len(lines) - 1; n >= 0 && n >= len(lines)-8; n-- {
+		if strings.HasPrefix(strings.TrimSpace(StripANSI(lines[n])), "───") {
+			bottom = n
+			break
+		}
+	}
+	if bottom < 0 {
+		return -1
+	}
+	for n := bottom - 1; n > 0 && n >= bottom-60; n-- {
+		if strings.HasPrefix(strings.TrimSpace(StripANSI(lines[n])), "───") {
+			l := lines[n+1]
+			if idx := strings.Index(l, "❯"); idx >= 0 && strings.TrimSpace(StripANSI(l[:idx])) == "" && n+1 < bottom {
+				return n + 1
+			}
+			return -1
+		}
+	}
 	return -1
 }
+
+// InputBoxText is the text in the input box whatever its style: typed text is drawn dim
+// when the terminal is not focused, so it looks like a greyed-out suggestion. For checking
+// that a message we typed landed; lines joined by spaces.
+func InputBoxText(raw string) string {
+	lines := strings.Split(strings.TrimRight(raw, "\n"), "\n")
+	n := findInputLine(lines)
+	if n < 0 {
+		return ""
+	}
+	parts := []string{strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(strings.ReplaceAll(StripANSI(lines[n][promptEnd(lines[n]):]), "\u00a0", " ")), "│"))}
+	for _, l := range lines[n+1:] {
+		t := strings.TrimSpace(strings.Trim(strings.TrimSpace(StripANSI(l)), "│"))
+		if t == "" || strings.HasPrefix(t, "─") || strings.HasPrefix(t, "╰") || strings.HasPrefix(t, "╭") {
+			break
+		}
+		parts = append(parts, t)
+	}
+	return strings.Join(strings.Fields(strings.Join(parts, " ")), " ")
+}
+
+// BoxHas reports whether the input box text still holds msg: its first or its last
+// 40 characters (spaces normalised). A long message wraps and may scroll inside the
+// box, so one end of it can be out of sight. Judged by the text, not its style: in a
+// terminal without focus Claude Code draws typed text dim, like a greyed-out suggestion.
+func BoxHas(box, msg string) bool {
+	b, m := strings.Join(strings.Fields(box), " "), strings.Join(strings.Fields(msg), " ")
+	if b == "" || m == "" {
+		return false
+	}
+	r := []rune(m)
+	if len(r) <= 40 {
+		return strings.Contains(b, m)
+	}
+	return strings.Contains(b, string(r[:40])) || strings.Contains(b, string(r[len(r)-40:]))
+}
+
+// boxHoldsPaste: Claude Code folded a long input into a «[Pasted text #1 +N lines]» chip.
+func boxHoldsPaste(box string) bool { return strings.Contains(box, "[Pasted text") }
 
 var sgrRe = regexp.MustCompile(`\x1b\[([0-9;]*)m`)
 
@@ -289,6 +369,7 @@ var networkMarkers = []string{
 	"econnrefused", "enotfound", "etimedout", "network is unreachable",
 	"unable to connect to api", "api error: connection", "connection error",
 	"включите vpn", "включить vpn", "нет сети", "не открывается (no such host",
+	"connection lost", // "Connection lost while your computer was asleep"
 }
 
 func detectNetworkIssue(plain string) bool {
@@ -348,7 +429,7 @@ func classifyNetError(turn string) (network, mcp bool) {
 			continue
 		}
 		network = true
-		if strings.Contains(low, "mcp") || strings.Contains(low, "connection closed") {
+		if strings.Contains(low, "mcp") || strings.Contains(low, "connection closed") || strings.Contains(low, "asleep") {
 			mcp = true
 		}
 	}
@@ -562,7 +643,7 @@ func (i *Instance) StatusLabel() (string, StatusKind) {
 		return "запускается", StatusStarting
 	case i.Status == Running && i.WaitReason != "":
 		return "в ожидании · " + i.WaitReason, StatusOnHold
-	case i.Status == Running:
+	case i.Status == Running && !i.NeedsInput: // a permission prompt on screen: it waits, whatever else moves
 		return "в работе", StatusWorking
 	case i.NeedsInput && i.PermissionCmd != "" && i.PermissionCmd != "?":
 		return "нужно разрешение · " + i.PermissionCmd, StatusNeedsInput
@@ -721,32 +802,38 @@ func (i *Instance) ReplaceInput(text string) error {
 	if !i.started || i.tmuxSession == nil {
 		return fmt.Errorf("сессия не запущена")
 	}
-	currentDraft := func() string {
+	box := func() string {
 		content, err := i.tmuxSession.CapturePaneContent()
 		if err != nil {
 			return ""
 		}
-		return extractDraft(content)
+		return InputBoxText(content)
 	}
-	for attempt := 0; attempt < 2; attempt++ {
-		draft := currentDraft()
-		if draft == "" {
-			break
-		}
-		if attempt == 0 {
-			SaveWipedDraft(i.Title, draft)
-		}
-		if attempt == 1 {
+	// Erase whatever is in the box. Judged by the text, not by its style: an unfocused
+	// session draws typed text dim, exactly like a greyed-out suggestion. Backspaces
+	// do not touch a suggestion, so a box that does not change was only a suggestion.
+	prev := box()
+	saved := false
+	for attempt := 0; prev != "" && attempt < 3; attempt++ {
+		if attempt > 0 {
 			_ = i.tmuxSession.SendKeys("\x05") // Ctrl+E: cursor to end of line
 		}
-		backspaces := utf8.RuneCountInString(draft) + strings.Count(draft, "\n") + 2
-		if err := i.tmuxSession.SendKeys(strings.Repeat("\x7f", backspaces)); err != nil {
+		if err := i.tmuxSession.SendKeys(strings.Repeat("\x7f", utf8.RuneCountInString(prev)+10)); err != nil {
 			return err
 		}
-		time.Sleep(250 * time.Millisecond)
-	}
-	if d := currentDraft(); d != "" {
-		return fmt.Errorf("не получилось стереть черновик в «%s», сообщение не отправлено — зайди в сессию и очисти поле вручную", i.Title)
+		time.Sleep(300 * time.Millisecond)
+		cur := box()
+		if cur == prev {
+			break // a suggestion, not typed text
+		}
+		if !saved {
+			SaveWipedDraft(i.Title, prev)
+			saved = true
+		}
+		if cur != "" && attempt == 2 {
+			return fmt.Errorf("не получилось стереть черновик в «%s», сообщение не отправлено — зайди в сессию и очисти поле вручную", i.Title)
+		}
+		prev = cur
 	}
 	return i.SendPrompt(text)
 }

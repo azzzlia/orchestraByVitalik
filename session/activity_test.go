@@ -2,7 +2,7 @@ package session
 
 import "testing"
 
-const screenHints = "\x1b[1m● Да, обе спеки запушены.\x1b[0m\n\n  - BRIEF: ревизия 3\n\n* Baked for 23s · done 2:57 PM\n\n※ recap: Задача — ревизия подсказок по наведению: спека (ревизия 3) запушена и ждёт\n  утверждения Евгением, MR !19809 стоит в очереди ревью бота. Нужно твоё решение по\n  видео Евгения про цитирование: спросить его или завести отдельную задачу.\n                                          ✔ Update installed · Restart to apply\n────────────────────────────\n❯ \n────────────────────────────\n  ▸▸ auto mode on (shift+tab to cycle)\n"
+const screenHints = "\x1b[1m● Да, обе спеки запушены.\x1b[0m\n\n  - BRIEF: ревизия 3\n\n* Baked for 23s · done 2:57 PM\n\n※ recap: Задача — ревизия подсказок по наведению: спека (ревизия 3) запушена и ждёт\n  утверждения коллегой, MR !19809 стоит в очереди ревью бота. Нужно твоё решение по\n  видео коллеги про цитирование: спросить его или завести отдельную задачу.\n                                          ✔ Update installed · Restart to apply\n────────────────────────────\n❯ \n────────────────────────────\n  ▸▸ auto mode on (shift+tab to cycle)\n"
 
 func TestRecapAndStage(t *testing.T) {
 	i := &Instance{Status: Ready}
@@ -12,7 +12,7 @@ func TestRecapAndStage(t *testing.T) {
 	if got := i.Stage(); got != "ждёт твоего решения" {
 		t.Fatalf("stage = %q (recap %q)", got, i.Recap)
 	}
-	if label, _ := i.StatusLabel(); label != "ждёт тебя" {
+	if label, _ := i.StatusLabel(); label != "ждёт тебя · нужно твоё решение" {
 		t.Fatalf("label %q", label)
 	}
 	if len(i.TailLines) == 0 || i.TailLines[len(i.TailLines)-1] == "❯ " {

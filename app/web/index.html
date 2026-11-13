@@ -5,37 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#110f17">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Оркестр">
 <title>Оркестр</title>
 <style>
 :root{
   /* dark: plum-black, pink + violet accents */
-  --bg:#110f17;--cell:#1b1924;--cell2:#25222f;--line:#2a2736;--line2:#3a364a;--text:#f1eff7;--dim:#9a96ad;--faint:#625e76;
+  --bg:#110f17;--cell:#1b1924;--cell2:#25222f;--line:#2a2736;--line2:#3a364a;--text:#f1eff7;--dim:#b4b0c5;--faint:#8a86a0;
   --accent:#ec6f9c;--accent2:#a586f0;--green:#4ade80;--yellow:#f5b942;--red:#f2667a;--sky:#6aa8ff;--cyan:#5ad1e6;--gray:#6e6a80;--slate:#a8a4bb;
   --tbg:#0b0a10;--tfg:#e6e3f0;--tdim:#8f8aa6;--cur:#ec6f9c;--tline:#1c1a25;
-  --pri-bg:#3b1f33;--pri-line:#7a3a5c;--warn-bg:#3a2a12;--warn-line:var(--warn-line);--warn-fg:var(--warn-fg);--bad-bg:#3b1a26;--bad-fg:#fda4b8;
-  --pet:#f5a3c4;--pet-glow:rgba(236,111,156,.35);--brand2:#ec6f9c;--shadow:rgba(0,0,0,.45);
+  --pri-bg:#3b1f33;--pri-line:#7a3a5c;--warn-bg:#3a2a12;--warn-line:#6b4a1c;--warn-fg:#f5d08a;--bad-bg:#3b1a26;--bad-fg:#fda4b8;
+  --brand2:#ec6f9c;--shadow:rgba(0,0,0,.45);
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   color-scheme:dark;
-}
-:root[data-theme="light"] .term{filter:invert(1) hue-rotate(180deg) saturate(1.15)}
-:root[data-theme="light"]{
-  /* light: cream paper, ink, gold */
-  --bg:#f3ece0;--cell:#fbf7ef;--cell2:#efe6d6;--line:#e2d7c3;--line2:#cfc1a6;--text:#151a26;--dim:#525866;--faint:#8b8576;
-  --accent:#a8731b;--accent2:#7c5cd6;--green:#1f9d55;--yellow:#c98a12;--red:#d9475a;--sky:#1e8fd6;--cyan:#0e9bb0;--gray:#9a9384;--slate:#6f6a5e;
-  --tbg:#0b0a12;--tfg:#e8e6df;--tdim:#7d7b88;--cur:#4f7fe6;--tline:#16151f;
-  --pri-bg:#f4e2bd;--pri-line:#d4a856;--warn-bg:#fbe8c4;--warn-line:#e0b25c;--warn-fg:#6b4a08;--bad-bg:#f8dcdc;--bad-fg:#a12a3a;
-  --pet:#a8731b;--pet-glow:rgba(168,115,27,.18);--brand2:#a8731b;--shadow:rgba(80,60,20,.18);
-  color-scheme:light;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
-body{display:flex;flex-direction:column;overflow:hidden}
+body{display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+/* the app on the home screen draws under the status bar: settings too */
+#set{padding-top:env(safe-area-inset-top)!important;box-sizing:border-box}
 header{display:flex;align-items:center;gap:10px;padding:0 14px;height:44px;flex:none;border-bottom:1px solid var(--line)}
 .brand{font-weight:800;color:var(--text);letter-spacing:-.2px}
 .brand b{color:var(--brand2);font-weight:800}
-#theme{font-size:14px;padding:2px 8px}
 #setb{font-size:17px;line-height:1;padding:3px 8px}
 .ver{color:var(--faint);font:12px var(--mono)}
 .tabs{display:flex;gap:2px;margin-left:10px}
@@ -47,7 +39,7 @@ header{display:flex;align-items:center;gap:10px;padding:0 14px;height:44px;flex:
 .pill.bad{background:var(--bad-bg);color:var(--bad-fg)}
 .pill.call{background:var(--bad-bg);color:var(--bad-fg);font-weight:600;cursor:pointer}
 kbd{font:11px var(--mono);background:var(--cell2);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--dim)}
-main{flex:1;min-height:0;display:flex;position:relative}
+main{flex:1;min-height:0;display:flex;position:relative;overflow:hidden}
 
 /* ---------- list view (like the TUI main screen) ---------- */
 #list{display:flex;flex:1;min-width:0}
@@ -79,11 +71,54 @@ body.gdrag [data-gh]{outline:1px dashed var(--line2);outline-offset:2px;border-r
 .filtnote{color:var(--accent);text-transform:none;letter-spacing:0;margin-left:8px}
 #qdock{width:380px;flex:none;border-left:1px solid var(--line);overflow:auto;padding:10px 12px 40px;display:none;background:var(--bg)}
 body.qdock #qdock{display:block}
-body.qdock.ov #qdock,body.vfeed #qdock,body.vlim #qdock{display:none}
-#feed,#lim{display:none;flex:1;overflow:auto;padding:14px 18px 30px}
-body.vfeed #feed,body.vlim #lim{display:block}
-body.vfeed #list,body.vlim #list{display:none}
-.fday{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--faint);margin:14px 0 6px}
+body.qdock.ov #qdock,body.vfeed #qdock,body.vlim #qdock,body.vstat #qdock{display:none}
+#feed,#lim,#stat{display:none;flex:1;overflow:auto;padding:14px 18px 30px}
+body.vfeed #feed,body.vlim #lim,body.vstat #stat{display:block}
+body.vfeed #list,body.vlim #list,body.vstat #list,body.vmac #list{display:none}
+body.vmac #qdock{display:none}
+#mac{display:none;flex:1;min-height:0;min-width:0;max-width:100vw;box-sizing:border-box;flex-direction:column;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+body.vmac #mac{display:flex}
+#mac .mh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#mac .mh b{font-size:15px}
+#mac .mh .sp{flex:1}
+#mwrap{flex:1;min-height:0;min-width:0;overflow:auto;background:#0b0a10;border:1px solid var(--line);border-radius:12px;padding:8px 10px;-webkit-overflow-scrolling:touch}
+#mwrap.on{border-color:var(--accent)}
+#mscr{margin:0;font:12px/1.25 var(--mono);color:var(--tfg);white-space:pre;outline:none;width:max-content;min-width:100%;user-select:text;-webkit-user-select:text}
+#mac .mkeys{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+#mac .mkeys button{flex:none;min-height:38px;min-width:44px;font:12px var(--mono)}
+#mform{display:flex;gap:8px}
+#min{flex:1;min-width:0;background:var(--cell);border:1px solid var(--line2);border-radius:10px;color:var(--text);font:14px var(--mono);padding:10px 12px;min-height:44px}
+#mac .mnote{font-size:12px;color:var(--dim)}
+#stat .sh{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+#stat .sh b.t{font-size:15px}
+#stat .kp{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin:4px 0 12px}
+#stat .kp b{color:var(--text);font-size:15px;font-weight:650}
+#stat .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-bottom:6px}
+#stat .lg i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+#stat svg{display:block}
+#stat .ln{cursor:pointer}#stat .ln:hover rect.bg{fill:#1b1924}
+#stat .closedh{font-size:12px;color:var(--faint);margin:14px 0 4px}
+@keyframes of-ty{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes of-wv{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(25deg)}}
+@keyframes of-bt{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(20deg)}}
+@keyframes of-bl{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+@keyframes of-gl{0%,100%{opacity:.15}50%{opacity:.3}}
+@keyframes of-pop{0%{opacity:0;transform:translateY(4px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes of-pu{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes of-zz{0%{opacity:0;transform:translate(0,0)}40%{opacity:1}100%{opacity:0;transform:translate(8px,-18px)}}
+@keyframes of-ms{0%,6%{transform:translateX(0)}40%,56%{transform:translateX(var(--d))}92%,100%{transform:translateX(0)}}
+@keyframes of-mb{0%,41%{opacity:0}43%,54%{opacity:1}56%,100%{opacity:0}}
+@keyframes of-mf{0%,55.9%{transform:scaleX(1)}56%,100%{transform:scaleX(-1)}}
+@keyframes of-lg{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+.of-ha{animation:of-ty .32s infinite;transform-box:fill-box}.of-hb{animation:of-ty .32s infinite .16s;transform-box:fill-box}
+.of-wv{animation:of-wv .6s infinite;transform-origin:50% 100%;transform-box:fill-box}
+.of-bt{animation:of-bt .9s infinite;transform-origin:0% 100%;transform-box:fill-box}
+.of-ey{animation:of-bl 4.5s infinite;transform-origin:center;transform-box:fill-box}
+.of-gl{animation:of-gl 1.6s infinite}.of-pop{animation:of-pop .3s ease-out}
+.of-pu{animation:of-pu 1s infinite;transform-box:fill-box;transform-origin:center}
+.of-zz{animation:of-zz 2.2s infinite}.of-z2{animation:of-zz 2.2s infinite 1.1s}
+.of-ms{animation:of-ms 24s infinite linear}.of-mb{animation:of-mb 24s infinite}
+.of-mf{animation:of-mf 24s infinite;transform-box:fill-box;transform-origin:center}.of-lg{animation:of-lg .18s infinite}
+.fday{font-size:13px;font-weight:600;color:var(--dim);margin:16px 0 6px}
 .fe{display:flex;gap:10px;align-items:baseline;padding:4px 8px;border-radius:7px;cursor:pointer;min-width:0}
 .fe:hover{background:var(--cell)}
 .fe .tm{font:12px var(--mono);color:var(--faint);flex:none}
@@ -91,7 +126,7 @@ body.vfeed #list,body.vlim #list{display:none}
 .fe .what{color:var(--kc,var(--dim));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .lc{background:var(--cell);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
-.lc h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);font-weight:600}
+.lc h4{margin:0 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 .lc .big{font-size:28px;font-weight:700}
 .bar{height:6px;border-radius:3px;background:var(--cell2);margin-top:8px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--green)}
@@ -101,10 +136,26 @@ body.tnotes #notes{display:block}
 #note{width:100%;background:var(--cell);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 9px;font:inherit;font-size:13px;resize:vertical;min-height:34px;height:34px;max-height:240px}
 #note:focus{outline:none;border-color:var(--accent);height:90px}
 body.no-info #pinfo,body.no-keys #keys,body.no-send #sendbar,body.no-zoom #zm,body.no-zoom #zp,body.no-pills #meta{display:none}
-body.no-pets #petbar{display:none}
-#set{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}
-#set>div{background:var(--bg);border:1px solid var(--line2);border-radius:14px;padding:16px 20px;width:min(640px,94vw);max-height:88vh;overflow:auto;box-shadow:0 10px 40px var(--shadow)}
-#set h3{margin:16px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--faint)}
+#set{position:fixed;inset:0;background:var(--bg);display:none;z-index:30}
+#set>div{width:100%;height:100%;display:flex;flex-direction:column}
+#set .sh{display:flex;align-items:center;gap:12px;padding:0 24px;height:56px;border-bottom:1px solid var(--line);flex:none}
+#set .sh h1{margin:0;font-size:18px;font-weight:650;flex:1}
+#set .sbody{flex:1;display:flex;min-height:0}
+#set .snav{width:220px;flex:none;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px;background:#15131c}
+#set .snav button{text-align:left;padding:8px 12px;border-radius:8px;color:var(--dim);min-height:36px}
+#set .snav button.on{background:var(--cell2);color:var(--text)}#set .snav button:hover{color:var(--text)}
+#set .snav .hint{margin-top:auto;padding:8px 12px}
+#set .smain{display:block;position:static;flex:1;min-width:0;overflow:auto;padding:12px 28px 28px;max-width:860px}
+#set .sbox{border:1px solid var(--line);border-radius:12px}
+#set .sbox .srow{padding:9px 14px;border-bottom:1px solid var(--line);margin:0}#set .sbox .srow:last-child{border-bottom:0}
+#set .cdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+#set .chips{display:flex;gap:8px;flex-wrap:wrap}
+#set .chipb{font-size:13px;color:var(--dim);border:1px solid var(--line2);border-radius:999px;padding:0 14px;min-height:34px}
+#set .chipb.on{color:var(--text);background:var(--pri-bg);border-color:var(--pri-line)}
+#set p.hint{margin:8px 2px 0;font-size:12.5px;color:var(--dim)}
+#set .sfoot{margin-top:24px;display:flex;justify-content:flex-end}
+@media (max-width:700px){#set .sbody{flex-direction:column}#set .snav{width:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}#set .snav .hint{display:none}#set .smain{padding:8px 14px 24px}#set .sh{padding:0 14px}}
+#set h3{margin:18px 0 8px;font-size:15px;font-weight:650;color:var(--text)}
 #set h3:first-of-type{margin-top:4px}
 .srow{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:7px}
 .srow:hover{background:var(--cell)}
@@ -118,9 +169,9 @@ body.no-pets #petbar{display:none}
 .seg button{padding:2px 10px;font-size:12.5px}.seg button.on{background:var(--pri-bg)}
 .row{padding:7px 10px;border-radius:8px;cursor:pointer;min-width:0;border:1px solid transparent}
 .row:hover{background:var(--cell)}
-.row.sel{background:var(--cell2);box-shadow:inset 3px 0 0 var(--accent)}
+.row.sel{background:var(--cell2);box-shadow:inset 0 0 0 1px var(--line2)}
 .tab.on{box-shadow:inset 0 -2px 0 var(--accent)}
-.row.calls{box-shadow:inset 3px 0 0 var(--red);animation:pulse 1.3s ease-in-out infinite}
+.row.calls{background:color-mix(in srgb,var(--red) 12%,transparent);animation:pulse 1.3s ease-in-out infinite}
 .r1{display:flex;gap:8px;align-items:baseline;min-width:0}
 .num{color:var(--faint);font:12px var(--mono);min-width:18px}
 .ct{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -131,23 +182,120 @@ body.no-pets #petbar{display:none}
 .r2 span{color:var(--kc);font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .r2 .at,.cst .at{margin-left:auto;flex:none;color:var(--faint);font:11.5px var(--mono);font-weight:400}
 .r3{margin:1px 0 0 26px;color:var(--faint);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gsep{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--faint);margin:10px 10px 4px}
+.gsep{font-size:12.5px;font-weight:600;color:var(--dim);margin:12px 10px 4px}
 #pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--tbg)}
 #ph{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--bg);min-width:0}
 #back{display:none;font-size:18px;color:var(--dim);padding:0 6px 0 0}
 #ph .ct{font-size:15px;flex:none;max-width:45%}
 #ph .st{color:var(--kc);font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-#termwrap{flex:1;min-height:0;overflow:auto;padding:10px 12px;position:relative;background:var(--tbg)}
+#termwrap{flex:1;min-height:0;overflow:auto;padding:10px 12px;position:relative;background:var(--tbg);overscroll-behavior:contain}
+html,body{overscroll-behavior:none}
+#scr .ail{display:inline-block;min-width:100%;background:rgba(74,222,128,.07);margin-left:-10px;padding-left:10px;box-sizing:content-box}
 #termwrap.on{box-shadow:inset 0 0 0 3px var(--accent)}
 #inbar{display:none;padding:6px 12px;background:var(--accent);color:var(--bg);font-weight:600;font-size:13px}
 body.typing #inbar{display:block}
 #side.active{box-shadow:inset 0 2px 0 var(--accent)}
-.where{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin:4px 10px 6px}
-#scr{margin:0;font:13px/1.25 var(--mono);color:var(--tfg);white-space:pre;outline:none;width:max-content;min-width:100%;min-height:100%}
+.where{font-size:12.5px;font-weight:650;color:var(--accent);margin:4px 10px 6px}
+#scr{margin:0;font:13px/1.25 var(--mono);color:var(--tfg);white-space:pre;outline:none;width:max-content;min-width:100%;flex:none}
+/* like a chat: a short screen sits at the bottom, by the input, not at the top of an empty pane */
+#termwrap{display:flex;flex-direction:column}#hist{margin-top:auto;flex:none}#hist:empty+#scr{margin-top:auto}
 #hist{margin:0;font:13px/1.25 var(--mono);color:var(--tfg);white-space:pre;width:max-content;min-width:100%;opacity:.82}
 #hist:empty{display:none}
 #hist.tx{white-space:pre-wrap;width:auto;max-width:100%;overflow-wrap:anywhere}
-#hist .t-you{color:var(--cur);font-weight:600}#hist .t-tool{color:var(--tdim)}#hist .t-dim{color:var(--tdim);opacity:.8}
+/* the session as a chat (variant B): the conversation from the transcript as a feed,
+   the terminal below it shrinks to a live strip — what the agent is doing right now */
+#chat{display:none;flex:1;min-height:0;overflow:auto;padding:10px 28px 16px;background:var(--bg);overscroll-behavior:contain;font:14px/1.5 -apple-system,system-ui,sans-serif;color:var(--text)}
+body.chat #chat{display:block}
+body.chat #termwrap{flex:none;max-height:20%;min-height:3.2em;border-top:1px solid var(--line)}
+body.chat.stripbig #termwrap{max-height:32%}
+/* hidden strip: only a menu or a permission prompt (which wants a key) brings it back */
+body.chat.nostrip:not(.typing) #termwrap{display:none}
+body.chat.stripask #termwrap{max-height:46%}
+#striphead{display:none;align-items:center;gap:6px;padding:3px 10px;font-size:12px;color:var(--dim);background:var(--cell);border-top:1px solid var(--line)}
+#striphead .b{padding:2px 10px;min-height:26px;font-size:12px}
+body.chat #striphead{display:flex}body.chat #termwrap{border-top:0}
+body.chat.nostrip:not(.typing) #striphead{display:none}
+.c-xchips{display:contents}.c-xchips>summary{list-style:none;cursor:pointer;font:11.5px/1.5 var(--mono);color:var(--accent);border:1px dashed var(--line2);border-radius:6px;padding:1px 8px}
+.c-xchips>summary::-webkit-details-marker{display:none}.c-xchips[open]>summary{display:none}.c-xchips>.c-chips{display:contents}
+body.chat #hist{display:none}
+.c-row{display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}
+.c-row:last-child{border-bottom:0}
+.c-at{font-size:12px;color:var(--faint);padding-top:1px}
+.c-body{min-width:0;display:flex;flex-direction:column;gap:6px;max-width:1000px}
+.c-who{font-size:12px;font-weight:650}.c-you{color:var(--accent)}.c-ai{color:var(--green)}.c-sq{color:var(--accent2)}
+.c-txt{white-space:pre-wrap;overflow-wrap:anywhere}
+#lbox{position:fixed;inset:0;z-index:40;background:rgba(8,7,12,.92);display:none;align-items:center;justify-content:center;padding:56px 72px 72px}
+#lbox.on{display:flex}
+#lbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#lbox .lb-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;padding:12px 20px;font-size:13px;color:var(--dim)}
+#lbox .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+#lbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;font-size:34px;color:var(--text);border-radius:10px;background:rgba(255,255,255,.06)}
+#lbox .lb-nav:hover{background:rgba(255,255,255,.12)}#lbox .lb-prev{left:14px}#lbox .lb-next{right:14px}
+@media (max-width:700px){#lbox{padding:48px 8px 64px}#lbox .lb-nav{display:none}}
+.c-media{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.c-img{display:block;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--cell);line-height:0}
+.c-img img{display:block;max-width:min(320px,100%);max-height:220px;object-fit:contain}
+.c-img:hover{border-color:var(--accent)}
+.c-vid{margin:0;display:flex;flex-direction:column;gap:4px;max-width:min(420px,100%)}
+.c-vid video{width:100%;max-height:260px;border-radius:10px;border:1px solid var(--line2);background:#000}
+.c-vid figcaption{font-size:12px;color:var(--dim)}
+.c-chips{display:flex;gap:6px;flex-wrap:wrap}
+.c-chip{font:11.5px/1.5 var(--mono);color:var(--dim);background:var(--cell);border:1px solid var(--line);border-radius:6px;padding:1px 8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-md{overflow-wrap:anywhere}
+.c-md .t-h{font-weight:650;font-size:15.5px;margin:8px 0 2px}
+.c-md b{font-weight:650}
+.c-md .t-li{margin:2px 0;display:flex;gap:.45em}.c-md .t-bu{color:var(--dim);flex:none;min-width:.7em}.c-md .t-lt{min-width:0}
+.c-md .t-gap{height:.55em}
+.c-md code{font:12.5px var(--mono);background:var(--cell2);border-radius:4px;padding:0 4px}
+.c-md .t-code{white-space:pre-wrap;font:12.5px/1.4 var(--mono);background:var(--cell);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:4px 0}
+.c-md .t-need{background:var(--warn-bg);color:var(--yellow);border-radius:8px;padding:6px 10px;margin:4px 0;font-weight:600}
+.c-md .t-tblw{overflow-x:auto;margin:4px 0}
+.c-md .t-tbl{border-collapse:collapse;font-size:13px;width:max-content;max-width:none}
+.c-md .t-tbl th,.c-md .t-tbl td{overflow-wrap:normal;max-width:380px}
+.c-md .t-tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--dim);padding:6px 14px 6px 0;border-bottom:1px solid var(--line2)}
+.c-md .t-tbl td{padding:6px 14px 6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.c-more{display:block;margin:4px auto 10px;color:var(--dim)}
+/* what the agent is doing right now, under the feed (from the terminal's spinner line) */
+#cask{display:none;padding:2px 28px 10px;background:var(--bg);min-width:0}
+body.chat #cask.on{display:block}
+#cask .ck-card{padding:12px 14px;border:1px solid var(--warn-line,#6b4a1c);background:var(--warn-bg);border-radius:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+#cask .ck-h{font-weight:650;color:var(--yellow)}
+#cask .ck-q{color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
+#cask code{display:block;font-family:var(--mono);font-size:12.5px;background:var(--cell);border:1px solid var(--line);border-radius:8px;padding:7px 10px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:30vh;overflow:auto}
+#cask .ck-b{display:flex;gap:8px;flex-wrap:wrap}
+#cask .ck-b .b{min-height:36px;text-align:left}
+#cask .ck-d{font-size:12px;color:var(--dim)}
+@media (max-width:900px){#cask{padding:2px 10px 8px}#cask .ck-b .b{flex:1 1 100%}}
+#clive{display:none;align-items:center;gap:8px;padding:7px 28px;font-size:13px;color:var(--dim);background:var(--bg);border-top:1px solid var(--line);min-width:0}
+body.chat #clive.on{display:flex}
+#clive .lv-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--green);animation:lvp 1.4s ease-in-out infinite}
+#clive.ask .lv-dot{background:var(--yellow);animation:none}
+#clive b{color:var(--text);font-weight:600;flex:none}
+#clive .lv-step{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#clive .lv-t{flex:none;color:var(--faint);font-variant-numeric:tabular-nums}
+@keyframes lvp{50%{opacity:.35}}
+@media (max-width:700px){#clive{padding:6px 14px}}
+.c-pend{opacity:.7}.c-q{font-weight:400;color:var(--faint)}
+@media (max-width:700px){#chat{padding:6px 14px 12px}.c-row{grid-template-columns:minmax(0,1fr)}.c-at{font-size:11px;line-height:1.2}}
+#hist .t-dim{color:var(--tdim);opacity:.8}
+/* the conversation from the transcript: messages as blocks you can tell apart */
+#hist.tx{white-space:normal;opacity:1;font:14px/1.5 -apple-system,system-ui,sans-serif;padding:4px 2px 10px}
+#hist.tx .t-you{white-space:pre-wrap;background:rgba(236,111,156,.14);border-radius:8px;padding:7px 12px;margin:16px 0 8px;color:var(--tfg);font-weight:500}
+#hist.tx .t-at{float:right;color:var(--tdim);font-weight:400;font-size:12px;margin-left:12px}
+#hist.tx .t-ai{padding:4px 12px;margin:6px 0;color:var(--tfg)}
+#hist.tx .t-ai b{color:#fff;font-weight:650}
+#hist.tx .t-h{font-weight:650;font-size:15px;color:#fff;margin:10px 0 2px}
+#hist.tx .t-li{margin:1px 0;display:flex;gap:.45em}#hist.tx .t-bu{color:var(--tdim);flex:none;min-width:.7em}#hist.tx .t-lt{min-width:0}
+#hist.tx .t-gap{height:.55em}
+#hist.tx .t-tblw{overflow-x:auto;margin:4px 0}
+#hist.tx .t-tbl{border-collapse:collapse;font-size:13px;width:max-content;max-width:none}
+#hist.tx .t-tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--tdim);padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.15)}
+#hist.tx .t-tbl td{padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+#hist.tx .t-tbl th,#hist.tx .t-tbl td{overflow-wrap:normal;word-break:normal;white-space:normal;max-width:420px}
+#hist.tx code{font:12.5px var(--mono);background:rgba(255,255,255,.08);border-radius:4px;padding:0 4px}
+#hist.tx .t-code{white-space:pre-wrap;font:12.5px/1.4 var(--mono);background:rgba(255,255,255,.06);border-radius:6px;padding:6px 10px;margin:4px 0}
+#hist.tx .t-tool{font:12px/1.35 var(--mono);color:var(--tdim);margin:2px 0 0 15px;white-space:pre-wrap}
+#hist.tx .t-res{font:12px/1.35 var(--mono);color:var(--tdim);opacity:.75;margin:0 0 2px 30px;white-space:pre-wrap;max-height:4.2em;overflow:hidden}
 #hist .t-head{color:var(--tdim);font-style:italic}
 #hist:not(:empty){border-bottom:1px dashed var(--tline);padding-bottom:2px}
 #mode{font-size:12px;color:var(--faint);white-space:nowrap}
@@ -156,23 +304,110 @@ body.typing #inbar{display:block}
 #sendbar{display:flex;gap:8px;padding:0 12px calc(9px + env(safe-area-inset-bottom));background:var(--bg)}
 #msg{flex:1;min-width:0;background:var(--cell);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;resize:none;height:38px;max-height:140px}
 #msg:focus{outline:none;border-color:var(--accent)}
+#attach{font-size:16px;padding:4px 10px}
+body.filedrag #pane{box-shadow:inset 0 0 0 3px var(--accent)}
+body.filedrag #pane:after{content:"Отпусти — файл прикрепится к сообщению";position:absolute;left:50%;top:45%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--accent);padding:10px 16px;border-radius:10px;z-index:20;pointer-events:none}
+#pane{position:relative}
 .b{border:1px solid var(--line2);background:var(--cell2);border-radius:7px;padding:5px 10px;font-size:13px}
 .b:hover{border-color:var(--accent)}
 .b.pri{background:var(--pri-bg);border-color:var(--pri-line)}
 .b.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-fg)}
 .b.k{font:12px var(--mono);padding:4px 9px}
 
+/* ---------- board (v) ---------- */
+body.ov #grid{display:flex;flex-direction:column;padding:0;overflow:hidden}
+#bsum{display:flex;align-items:center;gap:10px 28px;padding:11px 20px;border-bottom:1px solid var(--line);background:#15131c;flex-wrap:wrap;font-size:13px;color:var(--dim);flex:none}
+#bsum .grp{display:flex;align-items:baseline;gap:22px;flex-wrap:wrap}#bsum .sp{flex:1}
+#bsum b{font-size:14px;font-weight:650;color:var(--text)}
+#bsum .vdot{display:inline-flex;align-items:center;gap:6px}#bsum .vdot i{width:8px;height:8px;border-radius:50%;background:var(--green)}#bsum .vdot.bad i{background:var(--red)}
+#bwrap{flex:1;display:flex;min-height:0}
+body.ov #meta{display:none}
+#board{flex:1;min-width:0;overflow:auto;padding:16px 20px 28px;display:flex;flex-direction:column;gap:16px}
+#bpin{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#bpin:empty{display:none}
+#bmap{display:none;position:relative;flex:none}
+body.bmap #bmap{display:block}body.bmap #bcols,body.bmap #bpin{display:none}
+#bmap .mcv{position:relative}#bmap .mcv>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mn{position:absolute;transform:translate(-50%,-22px);width:146px;display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;cursor:pointer;border-radius:12px;padding:2px 4px 4px;outline:none}
+.mn:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.mn .o{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:650;border:1.5px solid;background:var(--panel);margin-bottom:4px;transition:box-shadow .2s}
+.mn:hover .o{box-shadow:0 0 0 5px rgba(255,255,255,.06)}
+.mn.sel .o{box-shadow:0 0 0 3px var(--accent)}
+.mn.ask .o{animation:mpulse 2.4s ease-in-out infinite}
+@keyframes mpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,185,66,.35)}50%{box-shadow:0 0 0 8px rgba(245,185,66,0)}}
+@media (prefers-reduced-motion:reduce){.mn.ask .o{animation:none;box-shadow:0 0 0 4px rgba(245,185,66,.25)}}
+.mn b{font-size:12.5px;font-weight:600;max-width:140px;background:var(--bg);border-radius:4px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn small{font-size:11.5px;color:var(--dim);max-width:140px;background:var(--bg);border-radius:4px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn.hub .o{width:56px;height:56px;font-size:13px}
+.mn.lead .o{width:64px;height:64px}
+.mhl{position:absolute;transform:translateX(-50%);font-size:11.5px;font-weight:650;letter-spacing:.04em;white-space:nowrap}
+.mzz{position:absolute;left:8px;bottom:8px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(560px,70%)}
+.mzl{display:flex;flex-wrap:wrap;gap:6px;max-height:38vh;overflow:auto;padding:10px;background:#15131c;border:1px solid var(--line2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:12px;color:var(--dim)}
+#bmap .flow{stroke-dasharray:3 9;animation:mflow 1.6s linear infinite}
+#bmap .flowin{stroke-dasharray:3 9;animation:mflow 2.8s linear infinite reverse}
+@keyframes mflow{to{stroke-dashoffset:-24}}
+.mn.lead .o{animation:mbreath 4s ease-in-out infinite}
+@keyframes mbreath{0%,100%{box-shadow:0 0 0 0 rgba(185,163,245,.0)}50%{box-shadow:0 0 0 7px rgba(185,163,245,.12)}}
+@media (prefers-reduced-motion:reduce){#bmap .flow,#bmap .flowin,.mn.lead .o{animation:none}}
+.mleg{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}.mleg span{display:flex;align-items:center;gap:6px}.mleg i{width:8px;height:8px;border-radius:50%}
+.mzl span[data-g]{cursor:pointer;border:1px solid var(--line2);border-radius:7px;padding:2px 8px}
+.mzl span[data-g]:hover{color:var(--text)}
+#peek .pa:empty{display:none}#peek .pa .bcard{margin:0}
+#bcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start}
+.bcol{display:flex;flex-direction:column;gap:10px;min-width:0}
+.bcol h2{margin:0 0 2px;font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
+.bcol h2 i{width:8px;height:8px;border-radius:50%}.bcol h2 span{color:var(--faint);font-weight:500}
+.bempty{font-size:13px;color:var(--faint);padding:6px 2px}
+.bc{background:var(--cell);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0;cursor:pointer;transition:border-color .15s ease-out}
+.bc:hover{border-color:var(--line2)}
+.bc.ask{background:#1d1a24;border-color:#5a4420}
+.bc.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(236,111,156,.15)}
+.bc .t{display:flex;align-items:baseline;gap:8px;min-width:0}.bc .t .num{color:var(--faint);font-size:12px;flex:none}
+.bc .t b{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc .bq{color:var(--text)}.bc .bqh{color:var(--sky);font-weight:600}.bc .bq.perm{font-size:12.5px;color:var(--red)}
+.bc .ln{font-size:13px;color:var(--dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bc code{display:block;font:12px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--tfg);overflow-wrap:anywhere;max-height:7.5em;overflow:hidden}
+.bc .acts{display:flex;gap:6px;flex-wrap:wrap}.bc .acts.col{flex-direction:column}
+.bc .acts .b{min-height:34px;text-align:left}
+.bc .ft{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.bc .gdot{display:inline-flex;align-items:center;gap:5px}.bc .gdot i{width:7px;height:7px;border-radius:50%;background:var(--gc,var(--faint))}
+.bc .badge{border:1px solid var(--line2);border-radius:6px;padding:1px 7px;font-size:12px;color:var(--dim)}
+.bc .badge.merged{color:var(--green);border-color:#1f5a3a}.bc .badge.closed{color:var(--faint)}
+.bzz{align-self:flex-start;color:var(--dim)}
+.blist{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.blist li{padding:9px 12px;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid var(--line);cursor:pointer}
+.blist li:last-child{border-bottom:0}.blist li:hover{background:var(--cell)}.blist li.sel{background:var(--cell2);box-shadow:inset 0 0 0 1px var(--accent)}
+.blist li .s{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bpin{border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;min-width:0;border:1px solid}
+.bpin.cond{background:#1e1a2b;border-color:#4b3d70}.bpin.asst{background:#221a24;border-color:#6b3a55}
+.bpin.sel{box-shadow:0 0 0 3px rgba(236,111,156,.18)}
+.bpin .ic{flex:none;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.bpin.cond .ic{background:#2d2545;color:#b9a3f5}.bpin.asst .ic{background:#3b1f33;color:#f59bbd}
+.bpin .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bpin .hd{display:flex;align-items:center;gap:8px;min-width:0}.bpin .hd b{font-size:15px;font-weight:650;flex:none}
+.bpin .st{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.bpin .ln{font-size:13px;color:var(--tfg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#peek{display:none;flex:none;width:400px;max-width:42%;border-left:1px solid var(--line);background:#15131c;padding:14px 16px;flex-direction:column;gap:10px;min-height:0}
+body.peek #peek{display:flex}
+#peek .ph{display:flex;align-items:center;gap:8px}#peek .ph b{flex:1;font-weight:650;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#peek .pc{flex:1;overflow:auto;min-height:0;font-size:13px}
+#peek .pc .c-row{grid-template-columns:minmax(0,1fr);padding:8px 0}#peek .pc .c-at{font-size:11px}
+#peek .pl{display:flex;align-items:center;gap:8px;font-size:13px}
+#peek form{display:flex;gap:8px}
+#peek textarea{flex:1;min-width:0;background:var(--cell);border:1px solid var(--line2);border-radius:10px;color:var(--text);font:inherit;padding:8px 12px;min-height:40px;max-height:160px;resize:none;line-height:1.4}
+#peek form{align-items:center;flex-wrap:wrap;justify-content:flex-end}#peek form textarea{flex:1 1 100%;order:-1}
+#peek .hint{font-size:12px;color:var(--dim)}
+#peek.pdrop{outline:2px dashed var(--accent);outline-offset:-6px}
+@media (max-width:1200px){#bcols{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media (max-width:900px){#bpin,#bcols{grid-template-columns:minmax(0,1fr)}#board{padding:12px}#bsum{padding:10px 12px}
+  body.peek #peek{position:fixed;inset:auto 0 0 0;width:auto;max-width:none;height:70vh;z-index:25;border-left:0;border-top:1px solid var(--line2);border-radius:16px 16px 0 0}}
 /* ---------- overview (v) ---------- */
-#grid{display:none;flex:1;overflow:auto;padding:12px 14px 24px}
-body.ov #grid{display:block}
+#grid{display:none;flex:1;min-height:0}
 body.ov #list{display:none}
-.sec{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--faint);margin:14px 2px 8px}
+.sec{font-size:13px;font-weight:600;color:var(--dim);margin:16px 2px 8px}
 #grid>.sec:first-child{margin-top:0}
 #mainrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cellsgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}
-.row.col{box-shadow:inset 3px 0 0 var(--sc)}
-.row.col.sel{box-shadow:inset 3px 0 0 var(--sc)}
-.cell.col{border-left:4px solid var(--sc)}
+.row.col .ct::before,.cell.col .ct::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sc);margin-right:7px;vertical-align:1px}
 .gsep.qa,.sec.qa{color:var(--accent2)}
 .newg{display:none;border:1px dashed var(--line2);border-radius:8px;padding:8px 10px;text-align:center}
 body.dragging .newg{display:block}
@@ -181,12 +416,13 @@ body.dragging [data-drop]{outline:1px dashed var(--line2);outline-offset:2px;bor
 #gpick{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}
 #gpick>div{background:var(--bg);border:1px solid var(--line2);border-radius:12px;padding:14px 16px;min-width:300px;box-shadow:0 10px 40px var(--shadow)}
 #gpick .o{padding:7px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px}
-#gpick .o.on{background:var(--cell2);box-shadow:inset 3px 0 0 var(--accent)}
+#gpick .o.on{background:var(--cell2);box-shadow:inset 0 0 0 1px var(--accent)}
 #gpick .o kbd{min-width:18px;text-align:center}
 #gpick input{width:100%;margin-top:8px;background:var(--cell);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:7px 9px;font:inherit}
 #pinfo{padding:4px 12px 7px;background:var(--bg);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#pinfo .g{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:1px 7px;border-radius:5px;background:var(--cell2);color:var(--accent2)}
-#pinfo .note{color:var(--text)}
+#pinfo .g{font-size:12px;font-weight:600;padding:1px 7px;border-radius:5px;background:var(--cell2);color:var(--accent2)}
+.cab{font-size:12px;color:var(--text);opacity:.85;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin:2px 0}
+#pinfo .about{flex-basis:100%;order:-1;color:var(--text);font-size:13px;line-height:1.35}#pinfo .about b{color:var(--accent2);font-weight:600}#pinfo .about.none{color:var(--faint);font-size:12px}
 .cell{background:var(--cell);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;min-width:0;height:236px;cursor:pointer}
 .cell.big{height:280px}
 .cell.zz{height:auto;opacity:.62}.cell.zz:hover,.cell.zz.sel{opacity:1}
@@ -213,30 +449,31 @@ body.dragging [data-drop]{outline:1px dashed var(--line2);outline-offset:2px;bor
 /* ---------- queue drawer (u) ---------- */
 #qd{position:absolute;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 30px var(--shadow);transform:translateX(100%);transition:transform .18s ease;z-index:8;overflow:auto;padding:12px 14px 120px}
 body.qopen #qd{transform:none}
-.q{background:var(--cell);border:1px solid var(--line);border-left:3px solid var(--kc);border-radius:12px;padding:10px 12px;margin-bottom:8px;min-width:0}
+.q{background:var(--cell);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;min-width:0}
 .q.sel{border-color:var(--accent);border-left-color:var(--kc)}
 .q .h{display:flex;gap:8px;align-items:baseline;min-width:0}
-.q .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--kc)}
+.q .tag{font-size:12px;font-weight:650;color:var(--kc)}
 .q .tt{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .q .w{color:var(--faint);font-size:12px;white-space:nowrap}
 .q .tx{color:var(--dim);margin-top:4px;word-break:break-word}
 .q code{display:block;margin-top:6px;font:12px var(--mono);color:var(--text);background:var(--tbg);border:1px solid var(--line);padding:6px 8px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
 .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 
-/* ---------- pets ---------- */
-#petbar{flex:none;height:86px;position:relative;z-index:6;border-top:1px solid var(--line);background:var(--bg);overflow:visible}
-#petbar.off{height:26px}
-#pets{position:absolute;left:0;right:300px;top:0;bottom:0;pointer-events:none}
-.pet{position:absolute;left:0;bottom:3px;will-change:transform}
-.pet canvas{display:block;filter:drop-shadow(0 0 4px var(--pet-glow));pointer-events:auto;cursor:pointer}
-.pet .say{display:none;position:absolute;left:100%;bottom:22px;margin-left:10px;box-shadow:0 4px 14px var(--shadow);background:var(--cell2);border:1px solid var(--line2);color:var(--text);font-size:12px;padding:3px 9px;border-radius:10px;white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis}
-.pet .say:after{content:"";position:absolute;right:100%;top:50%;transform:translateY(-50%);border:6px solid transparent;border-right-color:var(--line2)}
-.pet.flip .say{left:auto;right:100%;margin:0 10px 0 0}
-.pet.flip .say:after{right:auto;left:100%;border-right-color:transparent;border-left-color:var(--line2)}
-.pet .say.alert{border-color:var(--red);color:var(--bad-fg)}
-#petcap{position:absolute;right:14px;top:50%;transform:translateY(-50%);text-align:right;font-size:11.5px;color:var(--faint);line-height:1.35}
-#petcap .w{color:var(--bad-fg)}
-#petcap button{color:var(--faint);font-size:11px;text-decoration:underline dotted}
+#updb .u-sm{display:none}
+#upd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}
+#upd>div{background:var(--bg);border:1px solid var(--line2);border-radius:14px;padding:16px 20px;width:min(980px,96vw);height:min(92vh,1100px);display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 40px var(--shadow)}
+#updh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#updh b{font-size:15px}#updh .sp{flex:1}
+#updmeta{font-size:12px;color:var(--dim)}#updmeta .err{color:var(--red)}
+#updadd{display:flex;gap:6px}#updadd input{flex:1;min-width:0;background:var(--cell);border:1px solid var(--line2);border-radius:7px;padding:5px 10px;color:inherit;font:inherit}
+#updlist{display:flex;flex-direction:column;gap:4px;max-height:34vh;overflow:auto;flex:none}
+.u-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;flex-wrap:wrap}
+.u-row.on{border-color:var(--pri-line);background:var(--cell)}
+.u-name{font-weight:650;font-family:var(--mono);font-size:13px}.u-st{font-size:12px;color:var(--dim);flex:1;min-width:140px}
+.u-st .err{color:var(--red)}.u-tag{font-size:11px;padding:1px 8px;border-radius:999px;background:var(--warn-bg);color:var(--yellow)}
+.u-new{color:var(--accent);font-weight:600}
+#updview{flex:1;overflow:auto;border-top:1px solid var(--line);padding-top:8px}
+#updview a{color:var(--accent)}#updview .t-tbl a{white-space:nowrap}
+#updview .u-empty{color:var(--dim);font-size:13px;line-height:1.7}
 #help{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:30}
 #help>div{background:var(--bg);border:1px solid var(--line2);border-radius:12px;padding:16px 20px;max-width:560px;line-height:1.9}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--cell2);border:1px solid var(--line2);padding:8px 14px;border-radius:8px;display:none;z-index:20;max-width:90vw}
@@ -249,7 +486,10 @@ body.qopen #qd{transform:none}
   body.open #pane{display:flex}
   #back{display:block}
   #mainrow,.cellsgrid{grid-template-columns:1fr}
-  .tabs kbd,#petbar{display:none}
+  .tabs kbd{display:none}
+  #updb .u-lg{display:none}#updb .u-sm{display:inline}
+  header{gap:6px;padding:0 8px;overflow-x:auto;scrollbar-width:none}header>*{flex:none}header .sp{flex:1}.brand,.ver,#meta{display:none!important}.tabs{margin-left:0}
+  #upd>div{padding:12px;width:100vw;height:100%;border-radius:0}#updlist{max-height:40vh}
 }
 </style>
 </head>
@@ -260,7 +500,7 @@ body.qopen #qd{transform:none}
   <span class="sp"></span>
   <span id="meta" style="display:flex;gap:6px"></span>
   <span class="pill" id="qpill" title="u">ждут тебя: 0</span>
-  <button class="pill" id="setb" title="Настройки вида (,)">⚙</button><button class="pill" id="theme" title="Тема (t)">☾</button><button class="pill" id="helpb" title="?">?</button>
+  <button class="pill" id="updb" title="Разбор обновлений в тестировании"><span class="u-lg">Обновления</span><span class="u-sm">📦</span></button><button class="pill" id="setb" title="Настройки вида (,)">⚙</button><button class="pill" id="helpb" title="?">?</button>
 </header>
 <main>
   <div id="list">
@@ -268,26 +508,30 @@ body.qopen #qd{transform:none}
     <div id="sgrip" title="Потяни, чтобы изменить ширину · двойной клик — по умолчанию"></div>
     <div id="pane">
       <div id="ph"><button id="back" title="Назад">←</button><span class="ct" id="pt"></span><span class="st" id="ps"></span>
-        <button class="b k" id="zm" title="Мельче">A−</button><button class="b k" id="zp" title="Крупнее">A+</button></div>
+        <button class="b k" id="vstrip" title="Скрыть или показать живую полосу терминала под чатом">Скрыть полосу</button><button class="b k" id="vmode" title="Чат из журнала Claude Code или сырой экран терминала">Терминал</button><button class="b k" id="zm" title="Мельче">A−</button><button class="b k" id="zp" title="Крупнее">A+</button></div>
       <div id="pinfo"></div>
       <div id="notes"><textarea id="note" placeholder="Заметка к сессии — видна только тебе: о чём она, что проверить…" spellcheck="false"></textarea></div>
       <div id="inbar">● Ты в сессии — всё, что печатаешь, уходит в неё · <b>Esc</b> — выйти · Shift+Esc — Esc в сессию</div>
-      <div id="termwrap" class="term"><pre id="hist"></pre><pre id="scr" tabindex="0"></pre></div>
+      <div id="chat"></div><div id="cask"></div><div id="clive"></div><div id="striphead"><span>Терминал — что агент делает сейчас</span><span class="sp"></span><button class="b k" data-sh="full">Развернуть</button><button class="b k" data-sh="hide">Скрыть</button></div><div id="termwrap" class="term"><pre id="hist"></pre><pre id="scr" tabindex="0"></pre></div>
       <div id="keys"></div>
-      <div id="sendbar"><textarea id="msg" placeholder="Сообщение… (i)"></textarea><button class="b pri" id="send">Отправить</button></div>
+      <div id="sendbar"><button class="b" id="attach" title="Прикрепить файл — или вставь (⌘V) / перетащи его сюда">📎</button><input type="file" id="fileIn" multiple hidden><textarea id="msg" placeholder="Сообщение… (i)"></textarea><button class="b pri" id="send">Отправить</button></div>
     </div>
     <div id="qdock"><div class="sec" style="margin-top:0">Ждут тебя</div><div id="queue2"></div></div>
   </div>
   <div id="feed"></div>
+  <section id="mac" aria-label="Терминал Мака"><div class="mh"><b>Терминал Мака</b><span class="hint" id="mst">подключаю…</span><span class="sp"></span><button class="b" data-m="zm" aria-label="Мельче">A−</button><button class="b" data-m="zp" aria-label="Крупнее">A+</button><button class="b" data-m="restart" title="Закрыть оболочку и открыть новую">Новая оболочка</button></div>
+    <div id="mwrap" title="Клик — печатать прямо в терминал"><pre id="mscr" tabindex="0"></pre></div>
+    <div class="mkeys" aria-label="Клавиши"></div>
+    <form id="mform"><label for="min" style="position:absolute;width:1px;height:1px;overflow:hidden">Команда</label><input id="min" placeholder="команда — Enter выполнит" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send"><button class="b pri" aria-label="Выполнить">⏎</button></form>
+    <div class="mnote">Обычная оболочка на Маке (не агент). Видно только тебе: по ключу и через Tailscale. Выключить: <code>"web_shell": "off"</code> в config.json.</div></section>
+  <div id="stat" aria-label="Статистика"></div>
   <div id="lim"></div>
   <div id="grid">
-    <div class="sec" id="pinsec">Закреплённые</div><div id="mainrow"></div>
-    <div id="groups"></div>
-    <div class="sec" id="ssec" style="display:none">Спят</div><div id="sleep"></div>
+    <section id="bsum" aria-label="Итог"></section>
+    <div id="bwrap"><div id="board"><div id="bpin"></div><div id="bcols"></div><div id="bmap" aria-label="Карта сессий"></div></div><aside id="peek" aria-label="Быстрый просмотр"></aside></div>
   </div>
   <div id="qd"><div class="sec">Ждут тебя <span style="float:right;text-transform:none;letter-spacing:0">u / Esc — закрыть</span></div><div id="queue"></div></div>
 </main>
-<div id="petbar"><div id="pets"></div><div id="petcap"></div></div>
 <div id="help"><div>
   <b>Клавиши</b> — как в Squad<br>
   <kbd>↑</kbd><kbd>↓</kbd> / <kbd>j</kbd><kbd>k</kbd> — выбрать сессию (её экран справа)<br>
@@ -298,21 +542,21 @@ body.qopen #qd{transform:none}
   <kbd>c</kbd> — цвет сессии · <kbd>g</kbd> — выбрать группу (или перетащи сессию мышкой) · <kbd>z</kbd> — отменить перенос<br>
   <kbd>/</kbd> — поиск и фильтры · <kbd>f</kbd> — закрепить сессию наверху · <kbd>w</kbd> — лента событий · <kbd>d</kbd> — ресурсы<br>
   <kbd>,</kbd> — настройки вида: панели, вкладки, группы, инструменты · ширину списка можно тянуть мышкой<br>
-  <kbd>p</kbd> — следующий питомец · <kbd>t</kbd> — светлая/тёмная тема · <kbd>?</kbd> — эта справка · <kbd>Esc</kbd> — закрыть
+  <kbd>?</kbd> — эта справка · <kbd>Esc</kbd> — закрыть
 </div></div>
 <div id="gpick"><div><div class="sec" style="margin-top:0">В какую группу — <span id="gpn"></span></div><div id="gopts"></div>
   <input id="gnew" placeholder="своя группа: название и Enter" maxlength="32"><div style="color:var(--faint);font-size:12px;margin-top:8px">↑↓ и Enter, цифра — сразу, Esc — отмена · сессии можно и перетаскивать мышкой</div></div></div>
+<div id="upd"><div>
+  <div id="updh"><b>Обновления в тестировании</b><span id="updmeta"></span><span class="sp"></span><button class="b k" id="updscan" title="git fetch веток обновлений и чат «забрать в тест»">Обновить список</button><button class="b k" id="updx">Esc</button></div>
+  <div id="updadd"><input id="updin" placeholder="Добавить вручную: im 26.1700.0" autocomplete="off" spellcheck="false"><button class="b" id="updgo">Добавить</button></div>
+  <div id="updlist"></div>
+  <div id="updview" class="c-md"><div class="u-empty">Выбери обновление. «Разобрать» — дайджест: что вошло, задачи #team, зоны риска и сценарии. Цифры считает git, текст пишет модель один раз (~10–15 тыс. токенов); «Дополнить» — только по новым коммитам. Сама Squad разбор не запускает.</div></div>
+</div></div>
+<div id="lbox" role="dialog" aria-modal="true" aria-label="Просмотр картинки"><img alt=""><div class="lb-bar"><span class="lb-name"></span><span class="lb-n"></span><a class="b" target="_blank" rel="noopener">В новой вкладке</a><button class="b" data-lb="close" aria-label="Закрыть">× Esc</button></div><button class="lb-nav lb-prev" data-lb="prev" aria-label="Предыдущая">‹</button><button class="lb-nav lb-next" data-lb="next" aria-label="Следующая">›</button></div>
 <div id="set"><div id="setin"></div></div>
 <div id="toast"></div>
 <script>
 "use strict";
-/* theme: system by default, t / the button switches, remembered in this browser */
-function applyTheme(t){if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
-  const light=t?t==="light":matchMedia("(prefers-color-scheme: light)").matches;if(!t&&light)document.documentElement.dataset.theme="light";
-  const b=document.getElementById("theme");if(b)b.textContent=light?"☀":"☾"}
-let THEME=null;try{THEME=localStorage.getItem("squad-theme")}catch(e){}
-applyTheme(THEME);
-function toggleTheme(){const light=document.documentElement.dataset.theme==="light";THEME=light?"dark":"light";try{localStorage.setItem("squad-theme",THEME)}catch(e){}applyTheme(THEME)}
 const KIND=["var(--green)","var(--yellow)","var(--red)","var(--gray)","var(--cyan)","var(--sky)","var(--accent)","var(--slate)"];
 const QK={"зовёт":"var(--red)","разрешение":"var(--yellow)","доверие":"var(--yellow)","меню":"var(--accent)","решение":"var(--sky)","ждёт":"var(--slate)"};
 let lastEsc=0,KEY="",S=null,sel=0,gsel=0,qsel=0,es=null,esFor=0,cols=80,zoom=0,typing=false;
@@ -327,24 +571,25 @@ const sessions=()=>(S&&S.sessions)||[];
 const byNum=n=>sessions().find(x=>x.number===n);
 /* ---------------- view settings (saved in ~/.claude-squad/web-prefs.json) ---------------- */
 let P={};
-const PDEF={side:"left",panels:{info:true,keys:true,send:true,zoom:true,pets:true,pills:true},porder:["info","term","keys","send"],
-  tabs:[{id:"list",on:true},{id:"ov",on:true},{id:"feed",on:false},{id:"lim",on:false}],tools:{qdock:false,notes:true}};
+const PDEF={side:"left",panels:{info:true,keys:true,send:true,zoom:true,pills:true},porder:["info","term","keys","send"],
+  tabs:[{id:"list",on:true},{id:"ov",on:true},{id:"mac",on:true},{id:"stat",on:true},{id:"feed",on:false},{id:"lim",on:true}],tools:{qdock:false,notes:true}};
 const pget=k=>P[k]??PDEF[k];
 const panels=()=>({...PDEF.panels,...(P.panels||{})});
 const tools=()=>({...PDEF.tools,...(P.tools||{})});
 const PNAME={info:"Инфо-строка и заметка",term:"Экран сессии",keys:"Кнопки клавиш",send:"Поле сообщения"};
 function porder(){const o=(P.porder||[]).filter(x=>PNAME[x]);for(const d of PDEF.porder)if(!o.includes(d))o.push(d);return o}
-const TABN={list:["Список",""],ov:["Обзор","v"],feed:["Лента","w"],lim:["Ресурсы","d"]};
+const TABN={list:["Список",""],ov:["Доска","v"],mac:["Терминал Мака","t"],stat:["Статистика","s"],feed:["Лента","w"],lim:["Ресурсы","d"]};
 function tabsList(){const t=(P.tabs||[]).filter(x=>TABN[x.id]).map(x=>({...x}));for(const d of PDEF.tabs)if(!t.find(x=>x.id===d.id))t.push({...d});return t}
 let psave=null;
 function savePrefs(){clearTimeout(psave);psave=setTimeout(async()=>{psave=null;await api("/api/prefs",{data:JSON.stringify(P)})},400)}
-async function loadPrefs(){if(psave)return;try{const r=await fetch("/api/prefs",{cache:"no-store"});if(r.ok){const d=await r.json();if(d&&typeof d==="object")P=d}}catch(e){}applyPrefs()}
+async function loadPrefs(){if(psave)return;try{const r=await fetch("/api/prefs",{cache:"no-store"});if(r.ok){const d=await r.json();if(d&&typeof d==="object")P=d}}catch(e){}
+  applyPrefs()}
 function applyPrefs(){const pa=panels(),to=tools(),b=document.body.classList;
   b.toggle("sright",pget("side")==="right");$("side").style.width=(P.sidew||340)+"px";
-  for(const id of["info","keys","send","zoom","pets","pills"])b.toggle("no-"+id,!pa[id]);
+  for(const id of["info","keys","send","zoom","pills"])b.toggle("no-"+id,!pa[id]);
   b.toggle("qdock",!!to.qdock);b.toggle("tnotes",!!to.notes);
-  const om={info:["pinfo","notes"],term:["termwrap"],keys:["keys"],send:["sendbar"]};
-  porder().forEach((id,i)=>om[id].forEach(el=>$(el).style.order=String(i*2+(el==="notes"?1:0))));
+  const om={info:["pinfo","notes"],term:["chat","cask","clive","striphead","termwrap"],keys:["keys"],send:["sendbar"]};
+  porder().forEach((id,i)=>om[id].forEach(el=>$(el).style.order=String(i*2+(el==="notes"||el==="termwrap"||el==="striphead"||el==="clive"||el==="cask"?1:0))));
   $("ph").style.order="-2";$("inbar").style.order="-1";drawTabs();fit();if(S)render()}
 
 /* sessions: pins, filter, groups in the user's order */
@@ -360,18 +605,22 @@ const inQueue=n=>((S&&S.queue)||[]).some(i=>i.number===n);
 const CHIPF={all:()=>true,me:x=>!!x.calls||inQueue(x.number)||x.kind===2,work:x=>!x.paused&&(x.kind===0||x.kind===4),cond:x=>x.kind===6,
   wait:x=>!x.paused&&[1,5,7].includes(x.kind),mr:x=>(x.mrs||[]).length>0,sleep:x=>!!x.paused};
 let FQ="";
-const hay=x=>[x.number,"#"+x.number,x.title,x.status,x.branch,x.folder,x.recap,x.note,glabel(gOf(x)),(x.mrs||[]).map(r=>r.ref.replace(/.*merge_requests\//,"!")).join(" "),(P.notes||{})[skey(x)]].join(" ").toLowerCase();
+// what the session is for: the note (conductor or cs ctl note), else its first task
+const about=x=>x.note||x.ask||"";
+const hay=x=>[x.number,"#"+x.number,x.title,x.status,x.branch,x.folder,x.recap,x.note,x.ask,glabel(gOf(x)),(x.mrs||[]).map(r=>r.ref.replace(/.*merge_requests\//,"!")).join(" "),(P.notes||{})[skey(x)]].join(" ").toLowerCase();
 function passes(x){if(!(CHIPF[P.filter]||CHIPF.all)(x))return false;if(!FQ)return true;const h=hay(x);return FQ.toLowerCase().split(/\s+/).filter(Boolean).every(t=>h.includes(t))}
 const filtered=()=>(!!P.filter&&P.filter!=="all")||!!FQ;
 const filterDesc=()=>[P.filter&&P.filter!=="all"?(CHIPS.find(c=>c[0]===P.filter)||[,""])[1]:"",FQ?"«"+FQ+"»":""].filter(Boolean).join(" + ");
 function ordered(){const all=sessions().filter(passes);
   const pinned=all.filter(isPinned).sort((a,b)=>(b.conductor?2:b.assistant?1:0)-(a.conductor?2:a.assistant?1:0)||a.number-b.number);
   const rest=all.filter(x=>!isPinned(x));
-  // sleeping sessions stay in their group (after the awake ones), so they can be moved too
-  const w=rest.slice().sort((a,b)=>(a.paused?1:0)-(b.paused?1:0)||a.number-b.number),z=[];
+  // sleeping sessions go to «Сон» (folded by default): the groups show only what is alive,
+  // so it is clear how many tasks are actually in progress. A woken one returns to its group.
+  const w=rest.filter(x=>!x.paused).sort((a,b)=>a.number-b.number),z=rest.filter(x=>x.paused).sort((a,b)=>b.number-a.number);
   const groups=sortGroups([...new Set(w.map(gOf))]).map(g=>({g,list:w.filter(x=>gOf(x)===g)}));
   const col=P.collapsed||{};
-  return{pinned,groups,z,all:[...pinned,...groups.flatMap(G=>col[G.g]?[]:G.list),...z]}}
+  return{pinned,groups,z,all:[...pinned,...groups.flatMap(G=>col[G.g]?[]:G.list),...(sleepOpen()?z:[])]}}
+const sleepOpen=()=>!!P.sleepOpen||!!FQ;
 const zzn=G=>{const n=G.list.filter(x=>x.paused).length;return n?` <span style="opacity:.7;text-transform:none;letter-spacing:0">(спят ${n})</span>`:""};
 const glabel=g=>g==="qa"?"QA-проверки":g==="dev"?"Разработка":g==="main"?"Дирижёр и помощник":g;
 function allGroups(){const set=new Set(["qa","dev"]);sessions().forEach(x=>{if(!x.conductor&&!x.assistant&&x.group)set.add(x.group)});return[...set].sort((a,b)=>(a==="qa"?-1:b==="qa"?1:a==="dev"?1:b==="dev"?-1:a.localeCompare(b,"ru")))}
@@ -400,25 +649,21 @@ function render(){
   // list
   const col=P.collapsed||{},NT=P.notes||{};
   $("chips").innerHTML=CHIPS.map(([c,l])=>{const on=(P.filter||"all")===c,n=c==="all"?-1:sessions().filter(CHIPF[c]).length;return c==="all"||n>0||on?`<button class="chip${on?" on":""}" data-c="${c}">${l}${n>=0?`<i>${n}</i>`:""}</button>`:""}).join("");
-  let h="";const rowHTML=x=>`<div draggable="${!(x.conductor||x.assistant)}" class="row${x.paused?" zz":""}${x.number===sel?" sel":""}${x.calls?" calls":""}${x.color?" col":""}${isPinned(x)?" pinned":""}" data-n="${x.number}" style="--kc:${KIND[x.kind]||"var(--text)"};--sc:${CHEX[x.color]||"transparent"}"><div class="r1"><span class="num">${x.number}</span><span class="ct">${esc(x.title)}</span>${NT[skey(x)]?'<span class="nt" title="есть заметка">📝</span>':""}${diffHTML(x)}<button class="pin" data-pin="${x.number}" title="${isPinned(x)?"Открепить":"Закрепить наверху"} (f)">${PINSVG}</button></div><div class="r2"><i class="dot"></i><span>${esc(x.status)}</span>${atHTML(x)}</div>${x.recap?`<div class="r3">${esc(x.recap)}</div>`:`<div class="r3">${esc(sub(x))}</div>`}</div>`;
+  let h="";const rowHTML=x=>`<div draggable="${!(x.conductor||x.assistant)}" class="row${x.paused?" zz":""}${x.number===sel?" sel":""}${x.calls?" calls":""}${x.color?" col":""}${isPinned(x)?" pinned":""}" data-n="${x.number}" title="${esc(about(x))}" style="--kc:${KIND[x.kind]||"var(--text)"};--sc:${CHEX[x.color]||"transparent"}"><div class="r1"><span class="num">${x.number}</span><span class="ct">${esc(x.title)}</span>${NT[skey(x)]?'<span class="nt" title="есть заметка">📝</span>':""}${diffHTML(x)}<button class="pin" data-pin="${x.number}" title="${isPinned(x)?"Открепить":"Закрепить наверху"} (f)">${PINSVG}</button></div><div class="r2"><i class="dot"></i><span>${esc(x.status)}</span>${atHTML(x)}</div><div class="r3">${esc(x.recap||x.note||x.ask||sub(x))}</div></div>`;
   if(o.pinned.length)h+=`<div class="gsep">Закреплённые · ${o.pinned.length}</div>`+o.pinned.map(rowHTML).join("");
   for(const G of o.groups){const c=!!col[G.g];h+=`<div class="gsep${G.g==="qa"?" qa":""}${c?" closed":""}" ${G.g==="main"?"":`data-drop="${esc(G.g)}"`} data-gh="${esc(G.g)}" draggable="true" title="Клик — свернуть · перетащи — поменять порядок групп"><span class="tw">▼</span>${esc(glabel(G.g))} · ${G.list.length}${zzn(G)}</div>`+(c?"":G.list.map(rowHTML).join(""))}
-  h+=`<div class="gsep newg" data-drop="+">+ новая группа (перетащи сюда)</div>`;if(o.z.length)h+=`<div class="gsep">Спят · ${o.z.length}</div>`+o.z.map(rowHTML).join("");
+  h+=`<div class="gsep newg" data-drop="+">+ новая группа (перетащи сюда)</div>`;if(o.z.length){const op=sleepOpen();h+=`<div class="gsep zzsep${op?"":" closed"}" data-zz="1" title="Клик — развернуть/свернуть · перетащи сессию в группу, чтобы сменить её группу"><span class="tw">▼</span>Сон · ${o.z.length}</div>`+(op?o.z.map(rowHTML).join(""):"")}
   if(!o.all.length&&!o.groups.length)h=`<div style="color:var(--dim);padding:12px 10px">Ничего не найдено. <button class="b k" id="fclr">Сбросить фильтр</button></div>`;
   $("sidelist").innerHTML=h;
   const x=byNum(sel);if(x){
     const gl=x.conductor?"дирижёр":x.assistant?"помощник":GNAME[x.group]||"";
-    $("pinfo").innerHTML=(gl?`<span class="g">${esc(gl)}</span>`:"")+(x.note?`<span class="note">${esc(x.note)}</span>`:"")+(x.branch?`<span>⎇ ${esc(x.branch)}</span>`:"")+mrsHTML(x)+(x.conductor||x.assistant?"":`<span style="margin-left:auto;color:var(--faint)">c — цвет · g — группа</span>`);
+    $("pinfo").innerHTML=(gl?`<span class="g">${esc(gl)}</span>`:"")+(about(x)?`<span class="about"><b>${x.note?"Зачем":"Задание"}:</b> ${esc(about(x))}</span>`:(x.conductor||x.assistant?"":`<span class="about none">о чём сессия — пока не записано (дирижёр допишет, или: cs ctl note ${x.number} "…")</span>`))+(x.branch?`<span>⎇ ${esc(x.branch)}</span>`:"")+mrsHTML(x)+(x.conductor||x.assistant?"":`<span style="margin-left:auto;color:var(--faint)">c — цвет · g — группа</span>`);
     const nt=$("note");if(document.activeElement!==nt){const v=NT[skey(x)]||"";nt._key=skey(x);if(nt.value!==v)nt.value=v}
     $("pt").textContent=x.number+" · "+x.title;$("ps").textContent=x.status;$("ps").style.setProperty("--kc",KIND[x.kind]);keysBar(x)}
+  applyMode();
   if(sel!==esFor)stream(sel);
-  // overview
-  const cell=(x,big)=>x.paused&&!big?`<div draggable="true" class="cell zz${x.number===gsel?" sel":""}${x.color?" col":""}" data-g="${x.number}" title="Enter или клик — разбудить" style="--kc:${KIND[x.kind]||"var(--text)"};--sc:${CHEX[x.color]||"transparent"}"><div class="r1"><span class="num">${x.number}</span><span class="ct">💤 ${esc(x.title)}</span>${diffHTML(x)}</div><div class="cst"><i class="dot"></i><span>${esc(x.status)}</span>${atHTML(x)}</div><div class="cf"><span class="fold">${esc(sub(x))}</span>${mrsHTML(x)}</div></div>`:`<div draggable="${!big}" class="cell${big?" big":""}${x.number===gsel?" sel":""}${x.calls?" calls":""}${x.color?" col":""}" data-g="${x.number}" style="--kc:${KIND[x.kind]||"var(--text)"};--sc:${CHEX[x.color]||"transparent"}"><div class="r1"><span class="num">${x.number}</span><span class="ct">${esc(x.title)}</span>${diffHTML(x)}</div><div class="cst"><i class="dot"></i><span>${esc(x.status)}</span>${atHTML(x)}</div>${x.recap?`<div class="recap">${esc(x.recap)}</div>`:""}<div class="pv term">${(x.preview||[]).map(l=>`<div>${esc(l)}</div>`).join("")||'<div style="opacity:.5">…</div>'}</div><div class="cf"><span class="fold">${esc(sub(x))}</span>${mrsHTML(x)}</div></div>`;
-  $("pinsec").style.display=o.pinned.length||filtered()?"":"none";
-  $("pinsec").innerHTML=(o.pinned.length?"Закреплённые":"")+(filtered()?`<span class="filtnote">фильтр: ${esc(filterDesc())} · / — изменить</span>`:"");
-  $("mainrow").innerHTML=o.pinned.map(x=>cell(x,true)).join("");
-  $("groups").innerHTML=o.groups.map(G=>`<div class="sec gh${G.g==="qa"?" qa":""}${col[G.g]?" closed":""}" ${G.g==="main"?"":`data-drop="${esc(G.g)}"`} data-gh="${esc(G.g)}" draggable="true">${col[G.g]?"▸ ":""}${esc(glabel(G.g))} · ${G.list.length}${zzn(G)}</div><div class="cellsgrid" ${G.g==="main"?"":`data-drop="${esc(G.g)}"`}>${G.list.map(x=>cell(x,false)).join("")}</div>`).join("")+`<div class="sec newg" data-drop="+">+ новая группа — перетащи сюда сессию</div>`;
-  $("ssec").style.display=o.z.length?"":"none";$("sleep").innerHTML=o.z.map(x=>`<span data-g="${x.number}" class="${x.number===gsel?"sel":""}" title="Enter — разбудить">💤 ${x.number} ${esc(x.title)}</span>`).join("");
+  // board
+  if(curView()==="ov")drawBoard();
   // queue
   if(qsel>=q.length)qsel=Math.max(0,q.length-1);
   $("queue").innerHTML=q.length?q.map((it,i)=>{
@@ -434,7 +679,7 @@ function render(){
 function keysBar(x){
   const q=(S.queue||[]).find(i=>i.number===x.number);
   const k=(l,d)=>`<button class="b k" data-key="${esc(d)}">${esc(l)}</button>`;
-  let h=`<span id="mode" class="${typing?"on":""}">${typing?"● в сессии · Esc — выйти · Shift+Esc или кнопка Esc — Esc в сессию":(mobile()?"":"Enter — войти в сессию и печатать · ↑↓ — другая сессия")}</span><span class="sp"></span>`;
+  let h=`<span id="mode" class="${typing?"on":""}">${typing?"● в сессии · Esc — выйти · Shift+Esc или кнопка Esc — Esc в сессию":(mobile()?"":(chatOn()?"Enter или i — ответить · ↑↓ — другая сессия · печатать прямо в терминал — режим «Терминал»":"Enter — войти в сессию и печатать · ↑↓ — другая сессия"))}</span><span class="sp"></span>`;
   h+=k("Esc","\x1b")+k("↑","\x1b[A")+k("↓","\x1b[B")+k("⏎","\r")+k("Tab","\t");for(let i=1;i<=4;i++)h+=k(String(i),String(i));
   if(q&&q.permission)h+=`<button class="b warn" data-ok="${x.number}">Разрешить один раз</button>`;
   h+=x.paused?`<button class="b pri" data-wake="${x.number}">Разбудить (r)</button>`:`<button class="b" data-restart="${x.number}">Перезапуск</button>`;
@@ -442,7 +687,7 @@ function keysBar(x){
 }
 
 /* ---------------- live screen ---------------- */
-function fit(){const w=$("termwrap").clientWidth-24;const base=Math.max(6.5,Math.min(13.5,w/(cols*0.605)));const fs=Math.max(6,base*Math.pow(1.15,zoom)).toFixed(2)+"px";$("scr").style.fontSize=fs;$("hist").style.fontSize=fs}
+function fit(){if($("termwrap").clientWidth<40)return;const w=$("termwrap").clientWidth-24;const base=Math.max(6.5,Math.min(13.5,w/(cols*0.605)));const fs=Math.max(6,base*Math.pow(1.15,zoom)).toFixed(2)+"px";$("scr").style.fontSize=fs;$("hist").style.fontSize=fs}
 
 /* scrollback: scroll up past the screen — the history above it loads in chunks */
 let histN=0,histMore=true,histBusy=false,histFor=0,histQuiet=0,histTop=0;
@@ -453,29 +698,180 @@ async function histLoad(){
     const r=await fetch(`/api/history?n=${sel}&lines=${want}`,{cache:"no-store"});if(!r.ok)return;const d=await r.json();
     if(histFor!==sel)return;
     histMore=!!d.more&&d.lines>=want;histN=d.lines;$("hist").classList.toggle("tx",d.kind==="transcript");
-    $("hist").innerHTML=(d.kind==="transcript"?`<span class="t-head">— разговор из журнала Claude Code${histMore?" · листай выше — ещё":" · начало"} —</span>\n`:"")+d.html;
+    $("hist").innerHTML=(d.kind==="transcript"?`<div class="t-head">— разговор из журнала Claude Code${histMore?" · листай выше — ещё":" · начало разговора"} —</div>`:"")+d.html;
     histQuiet=Date.now()+400;w.scrollTop=Math.max(0,t0+(w.scrollHeight-h0)-60); // same lines, a bit of the history in view
     histTop=w.scrollTop;
   }catch(e){}finally{histBusy=false}}
 $("termwrap").addEventListener("scroll",()=>{const w=$("termwrap"),down=w.scrollTop>histTop;histTop=w.scrollTop;
   if(Date.now()<histQuiet)return;
-  if(w.scrollTop<120)histLoad();
-  else if(down&&histN&&w.scrollTop+w.clientHeight>=w.scrollHeight-4){histReset();histQuiet=Date.now()+300;w.scrollTop=w.scrollHeight}}); // scrolled back down to the live screen: drop the old history
+  // only scrolling UP near the top loads more. Scrolling down never drops or reloads the history:
+  // with trackpad inertia that ran load→drop→load in a loop and the screen blinked or jumped away.
+  // The history goes when you type into the session or pick another one.
+  if(!down&&w.scrollTop<120)histLoad()});
 $("termwrap").addEventListener("wheel",e=>{if(e.deltaY<0&&$("termwrap").scrollTop<=0)histLoad()},{passive:true});
 function stream(n){
-  if(es){es.close();es=null}esFor=n;const el=$("scr");const x=byNum(n);el.innerHTML="";histReset();
+  if(es){es.close();es=null}esFor=n;heldFrame=null;const el=$("scr");const x=byNum(n);el.innerHTML="";histReset();if(chatFor!==n)chatReset();
   if(!x)return;if(x.paused){el.innerHTML='<span style="opacity:.55">Сессия спит — разбуди её клавишей r или кнопкой ниже.</span>';return}
   es=new EventSource("/api/stream?n="+n);
-  es.onmessage=e=>{const f=JSON.parse(e.data);if(f.cols&&f.cols!==cols){cols=f.cols;fit()}el.innerHTML=f.html};
+  let first=true;
+  es.onmessage=e=>{const f=JSON.parse(e.data);if(f.cols&&f.cols!==cols){cols=f.cols;fit()}if(selHold()){heldFrame=f.html;return}heldFrame=null;el.innerHTML=f.html;chatLive();
+    // the screen does not fill the pane: show the conversation above it right away
+    if(first){first=false;const w=$("termwrap");if(w.scrollHeight<=w.clientHeight+20)histLoad().then(()=>{w.scrollTop=w.scrollHeight})}};
   es.addEventListener("gone",()=>{es.close();es=null});
 }
+/* ---------- the session as a chat: the feed from the transcript, polled while open ---------- */
+let chatFor=0,chatFrom=-1,chatV="",chatLines=1500,chatBusy=false,chatStick=true;const chatNone={};
+// your messages show in the feed at once; until the transcript has them (Claude Code
+// writes a message there when it takes it — later if the agent is busy) they wait marked
+let chatPend=[];
+const normT=t=>String(t).replace(/\s+/g," ").trim();
+function chatPendDraw(scroll){const c=$("chat");c.querySelectorAll(".c-pend").forEach(e=>e.remove());
+  const seen=[...c.querySelectorAll(".c-you+.c-txt,.c-who.c-you~.c-txt")].slice(-20).map(e=>normT(e.textContent));
+  chatPend=chatPend.filter(p=>!seen.includes(normT(p.text)));
+  for(const p of chatPend.filter(p=>p.n===sel)){const d=document.createElement("div");d.className="c-row c-pend";
+    d.innerHTML=`<span class="c-at">${p.at}</span><div class="c-body"><span class="c-who c-you">Запрос <span class="c-q">· отправлено, агент ещё не взял</span></span><div class="c-txt"></div></div>`;
+    d.querySelector(".c-txt").textContent=p.text;c.appendChild(d)}
+  if(scroll){chatStick=true;c.scrollTop=c.scrollHeight}}
+// stay at the bottom while the pane or the feed changes size (fonts, the live strip growing)
+$("chat").addEventListener("scroll",()=>{const c=$("chat");chatStick=c.scrollHeight-c.scrollTop-c.clientHeight<40});
+new ResizeObserver(()=>{if(chatStick){const c=$("chat");c.scrollTop=c.scrollHeight}}).observe($("chat"));
+const chatOn=()=>pget("view")!=="term"&&!!sel&&!chatNone[sel];
+function applyMode(){const on=chatOn();document.body.classList.toggle("chat",on);$("vmode").textContent=on?"Терминал":"Чат";
+  $("vmode").style.display=sel&&!chatNone[sel]?"":"none";const x=byNum(sel);
+  const ask=!!x&&(typing||!!x.menu||!!x.permission);
+  document.body.classList.toggle("stripbig",!!x&&(ask||/в работе|думает|запуск/i.test(x.status||"")));
+  document.body.classList.toggle("stripask",ask);document.body.classList.toggle("nostrip",pget("strip")==="off");
+  $("vstrip").style.display=on?"":"none";chatLive();$("vstrip").textContent=pget("strip")==="off"?"Показать полосу":"Скрыть полосу"}
+function chatReset(){chatFor=sel;chatFrom=-1;chatV="";chatLines=1500;chatStick=true;$("chat").innerHTML="";chatLoad()}
+async function chatLoad(){
+  if(chatBusy||!sel||pget("view")==="term"||chatNone[sel])return;chatBusy=true;const n=sel;
+  try{const q=`/api/chat?n=${n}&lines=${chatLines}`+(chatFrom>=0?`&from=${chatFrom}`:"")+(chatV?`&v=${encodeURIComponent(chatV)}`:"");
+    const r=await fetch(q,{cache:"no-store"});if(!r.ok||n!==sel)return;const d=await r.json();
+    if(d.none){chatNone[n]=true;applyMode();return}
+    if(d.same)return;
+    const c=$("chat"),atBottom=c.scrollHeight-c.scrollTop-c.clientHeight<80,first=!chatV,top=c.scrollTop;
+    chatFrom=d.from;chatV=d.version;
+    c.innerHTML=(d.more?`<button class="b k c-more" data-chatmore="1">Показать раньше</button>`:"")+d.html;
+    fillMedia(c,n);chatPendDraw();
+    if(first||atBottom){chatStick=true;c.scrollTop=c.scrollHeight}else c.scrollTop=top;
+  }catch(e){}finally{chatBusy=false}}
+setInterval(()=>{if(chatOn()&&!document.hidden)chatLoad()},2000);
+/* pictures and videos the messages name: loaded from the session's own folder; a path
+   that is not there (or not inside the folder) just disappears */
+function fillMedia(root,n){root.querySelectorAll(".c-media [data-p]").forEach(el=>{const src=`/api/file?n=${n}&p=${el.dataset.p}`;
+  const gone=()=>{const f=el.closest(".c-img,.c-vid")||el;f.remove()};
+  if(el.tagName==="VIDEO"){el.src=src;el.onerror=gone;el.addEventListener("error",gone,true)}
+  else{el.href=src;const im=el.querySelector("img");im.onerror=gone;im.src=src}});
+  root.querySelectorAll(".c-media").forEach(m=>{if(!m.children.length)m.remove()})}
+// a session with no transcript yet (just started, conversation id not known) is shown as
+// the terminal; look again now and then and switch to the chat once there is one
+setInterval(async()=>{const n=sel;if(!n||!chatNone[n]||pget("view")==="term"||document.hidden)return;
+  try{const r=await fetch(`/api/chat?n=${n}&lines=50`,{cache:"no-store"});const d=r.ok?await r.json():{none:true};
+    if(!d.none&&n===sel){delete chatNone[n];applyMode();chatReset()}}catch(e){}},10000);
+$("striphead").addEventListener("click",e=>{const b=e.target.closest("[data-sh]");if(!b)return;
+  if(b.dataset.sh==="hide"){P.strip="off";savePrefs();applyMode()}else $("vmode").click()});
+$("vstrip").addEventListener("click",()=>{P.strip=pget("strip")==="off"?"on":"off";savePrefs();applyMode()});
+$("vmode").addEventListener("click",()=>{P.view=chatOn()?"term":"chat";savePrefs();applyMode();if(chatOn())chatReset();else{const w=$("termwrap");w.scrollTop=w.scrollHeight}});
+document.addEventListener("click",e=>{if(e.target.closest("[data-chatmore]")){const c=$("chat"),h0=c.scrollHeight;chatLines+=1500;chatFrom=-1;chatV="";
+  chatLoad().then(()=>{c.scrollTop=c.scrollHeight-h0})}});
+// the live line under the chat: read from the terminal frame — the spinner («✻ Wibbling…
+// (2m 26s · ↓ 1.6k tokens)») says the agent works, the last «●» step says on what
+const SPIN=/^\s*[✻✶✳✢✽·*+∗]\s+([^\s(][^(]*?…)\s*\(([^)]*)\)/;
+function chatLive(){const b=$("clive");if(!b)return;const x=byNum(sel);chatAsk();
+  if(!chatOn()||!x){b.className="";return}
+  const lines=$("scr").textContent.split("\n");let spin=null,step="",k=lines.length-1;
+  for(;k>=0&&k>=lines.length-40;k--){const m=lines[k].match(SPIN);if(m){spin=m;break}}
+  if(spin)for(let j=k-1;j>=0&&j>=k-30;j--){const t=lines[j].trim();if(/^[●⏺]\s/.test(t)){step=t.replace(/^[●⏺]\s+/,"");break}}
+  const ask=!!x.menu||!!x.permission;
+  if(ask){b.className="on ask";b.innerHTML=`<span class="lv-dot"></span><b>${x.permission?"Ждёт разрешения":"Ждёт выбора"}</b><span class="lv-step">— ответь кнопками выше</span>`;return}
+  if(!spin){b.className="";liveStep.text="";return}
+  const t=spin[2].split("·")[0].trim();
+  if(b.className!=="on"||!b.querySelector(".lv-step")){b.className="on";b.innerHTML=`<span class="lv-dot"></span><b>Работает</b><span class="lv-step"></span><span class="lv-t"></span>`}
+  b.querySelector(".lv-step").textContent="· "+pickStep(x.number,step,spin[1]);b.querySelector(".lv-t").textContent=t}
+/* what the live line says: the screen shows by turns the spinner's word («Flummoxing…») and
+   the current tool («Reading message.txt») — the line used to jump between them several times
+   a second. A tool beats the spinner's word and is kept for 5 s after it was last seen; any
+   change of text waits 1.5 s since the previous one. */
+const liveStep={n:0,text:"",tool:false,changed:0,toolSeen:0};
+function pickStep(n,tool,verb){const now=Date.now(),L=liveStep;
+  if(L.n!==n){Object.assign(L,{n,text:tool||verb,tool:!!tool,changed:now,toolSeen:tool?now:0});return L.text}
+  if(tool&&tool===L.text){L.toolSeen=now;return L.text}
+  const cand=tool||verb;if(cand===L.text)return L.text;
+  if(!tool&&L.tool&&now-L.toolSeen<5000)return L.text;
+  if(now-L.changed<1500)return L.text;
+  Object.assign(L,{text:cand,tool:!!tool,changed:now});if(tool)L.toolSeen=now;return L.text}
+
+/* the answer card in the chat: a permission prompt or a choice menu, read from the session's
+   screen, answered with the same keys as in the terminal (1/2/3) — no need to open the strip */
+const CK_OPT=/^\s*(?:[❯>]\s*)?(\d)\.\s+(.+?)\s*$/;
+function ckOptions(){const L=$("scr").textContent.split("\n").map(l=>l.replace(/^\s*│/,"").replace(/│?\s*$/,""));let end=-1,out=[];
+  for(let k=L.length-1;k>=0&&k>=L.length-40;k--){if(CK_OPT.test(L[k])){end=k;break}}
+  if(end<0)return out;let k=end;while(k>0&&CK_OPT.test(L[k-1]))k--;
+  for(let j=k;j<=end;j++){const m=L[j].match(CK_OPT);out.push({n:m[1],label:m[2]})}
+  return out}
+function ckLabel(t){
+  if(/^Yes$/i.test(t))return"Да";
+  let m=t.match(/^Yes,\s*and don.t ask again (?:for|this session for)\s*(.+)$/i);if(m)return"Да, и больше не спрашивать: "+m[1].replace(/\s*\(shift\+tab\)\s*$/i,"");
+  if(/^Yes,\s*allow all edits/i.test(t))return"Да, разрешить правки до конца сессии";
+  if(/^Yes,\s*and don.t ask again/i.test(t))return"Да, и больше не спрашивать";
+  if(/^No/i.test(t))return"Нет, сказать, что делать иначе";
+  return t}
+// the command under question, from the prompt box: lines between its title and «Do you want…»
+function ckCmd(){const L=$("scr").textContent.split("\n").map(l=>l.replace(/^\s*│/,"").replace(/│?\s*$/,"").trim());
+  let k=-1;for(let i=L.length-1;i>=0&&i>=L.length-60;i--){if(/^Do you want/i.test(L[i])){k=i;break}}
+  if(k<0)return null;const out=[];let title="";
+  for(let j=k-1;j>=0&&j>=k-40;j--){const t=L[j];if(/^[╭─]/.test(t)||/^[⏺●❯]/.test(t))break;
+    if(/^(Bash command|Edit file|Create file|Write|Read file|Fetch|Web fetch|Tool use|.* command)$/i.test(t)){title=t;break}
+    if(t)out.unshift(t)}
+  return out.length?{title,text:out.join("\n")}:null}
+let ckKey="";
+function chatAsk(){const c=$("cask");if(!c)return;const x=byNum(sel);
+  if(!chatOn()||!x||!(x.permission||x.menu)){if(ckKey){c.className="";c.innerHTML="";ckKey=""}return}
+  const q=(S.queue||[]).find(i=>i.number===x.number);let h="",key="";
+  if(x.permission){const opts=ckOptions().filter(o=>o.n<="5");
+    const cmd=ckCmd(),ct=cmd?cmd.text:(x.permission&&x.permission.length>2?x.permission:"");
+    const tt={"bash command":"команду","edit file":"правку файла","create file":"создание файла","write":"запись файла","read file":"чтение файла","fetch":"запрос в сеть","web fetch":"запрос в сеть"}[(cmd&&cmd.title||"").toLowerCase()]||"";
+    key="p:"+x.number+":"+ct+":"+opts.map(o=>o.n+o.label).join("|");
+    h=`<div class="ck-h">Разрешить${tt?" "+tt:""}?</div>${ct?`<code>${esc(ct)}</code>`:""}<div class="ck-b">`+
+      (opts.length?opts.map(o=>`<button class="b${o.n==="1"?" pri":""}" data-ckp="${x.number}:${o.n}" data-ckl="${esc(ckLabel(o.label))}" data-cno="${/^No/i.test(o.label)?1:""}">${o.n} · ${esc(ckLabel(o.label))}</button>`).join(""):`<button class="b pri" data-ckp="${x.number}:1">1 · Да</button>`)+
+      `</div><div class="ck-d">«Нет» — затем напиши в поле ниже, что делать вместо этого.</div>`}
+  else if(q&&q.menu&&(q.menu.multi||q.menu.review)){key="mr:"+x.number+":"+(q.menu.question||"");
+    h=`<div class="ck-h">Нужен выбор</div>${q.menu.question?`<div class="ck-q">${esc(q.menu.question)}</div>`:""}<div class="ck-d">${q.menu.multi?"Тут можно отметить несколько вариантов":"Это проверка ответов перед отправкой"} — такое выбирается в полосе терминала: стрелки, пробел, Enter.</div>`}
+  else if(q&&q.menu){const mn=q.menu;key="m:"+x.number+":"+(mn.question||"")+":"+mn.options.map(o=>o.number+o.label).join("|");
+    h=`<div class="ck-h">Нужен выбор</div>${mn.question?`<div class="ck-q">${esc(mn.question)}</div>`:""}<div class="ck-b">`+
+      mn.options.map(o=>o.free||o.chat?`<button class="b" data-ckfree="${x.number}:${o.number}">${o.number} · ${o.free?"Свой ответ — написать":"Обсудить"}</button>`
+        :`<button class="b${o.recommended?" pri":""}" data-ans="${x.number}:${o.number}" title="${esc(o.desc||"")}">${o.number} · ${esc(o.label.replace(/\s*\(Recommended\)$/,""))}${o.recommended?" (рекомендую)":""}</button>`).join("")+`</div>`}
+  else{key="w:"+x.number;h=`<div class="ck-h">Ждёт выбора</div><div class="ck-d">Варианты не распознаны — ответь в полосе терминала ниже.</div>`}
+  if(key===ckKey)return;ckKey=key;c.className="on";c.innerHTML=`<div class="ck-card">${h}</div>`;
+  if(chatStick){const ch=$("chat");ch.scrollTop=ch.scrollHeight}}
+$("cask").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.ckp){const[n,o]=b.dataset.ckp.split(":");b.disabled=true;
+    const no=!!b.dataset.cno;
+    if(await api("/api/approve",{n,opt:o,label:b.dataset.ckl||""})){toast(no?"Отказано — напиши, что делать вместо этого":"Разрешено: "+(b.dataset.ckl||"да"));ckKey="";if(no)$("msg").focus();setTimeout(load,600)}else b.disabled=false;return}
+  if(b.dataset.ans){const[n,o]=b.dataset.ans.split(":");b.disabled=true;if(await api("/api/answer",{n,option:o})){toast("Выбрано");ckKey="";setTimeout(load,600)}else b.disabled=false;return}
+  if(b.dataset.ckfree){const[n,o]=b.dataset.ckfree.split(":");if(await api("/api/keys",{n,data:o})){ckKey="";$("msg").focus();toast("Напиши ответ в поле ниже и отправь")}}});
+/* selecting text: while the mouse is down in the terminal or a selection is in it, new frames
+   wait — replacing the screen (up to 5 times a second while Claude works) dropped the selection
+   mid-drag. The newest frame is shown as soon as the selection is gone. */
+let selDown=false,heldFrame=null;
+function selInTerm(){const s=window.getSelection&&getSelection();if(!s||s.isCollapsed||!s.rangeCount)return false;return $("termwrap").contains(s.getRangeAt(0).commonAncestorContainer)}
+function selHold(){return selDown||selInTerm()}
+function selFlush(){if(heldFrame!==null&&!selHold()){$("scr").innerHTML=heldFrame;heldFrame=null}}
+$("termwrap").addEventListener("mousedown",e=>{if(e.button===0)selDown=true});
+window.addEventListener("mouseup",()=>{if(selDown){selDown=false;setTimeout(selFlush,0)}});
+document.addEventListener("selectionchange",()=>{if(!selDown)selFlush()});
+// copy: the terminal pads lines with spaces to its width — strip them so the copied text is clean
+document.addEventListener("copy",e=>{if(!selInTerm())return;const t=String(getSelection()).split("\n").map(l=>l.replace(/\s+$/,"")).join("\n").replace(/\n+$/,"");
+  if(e.clipboardData){e.clipboardData.setData("text/plain",t);e.preventDefault()}toast("Скопировано")});
 function select(n){if(!n||n===sel)return;sel=n;setTyping(false);render();const r=document.querySelector(`.row[data-n="${n}"]`);r&&r.scrollIntoView({block:"nearest"})}
-function setTyping(on){typing=!!on&&!!sel&&!(byNum(sel)||{}).paused;$("termwrap").classList.toggle("on",typing);document.body.classList.toggle("typing",typing);$("side").classList.toggle("active",!typing&&!inOv());const x=byNum(sel);if(x)keysBar(x);if(typing){$("scr").focus();const w=$("termwrap");w.scrollTop=w.scrollHeight}else if(document.activeElement===$("scr"))$("scr").blur()}
-function openSession(n,typeNow){setView("list");closeQueue();sel=n;render();document.body.classList.add("open");if(typeNow&&!mobile())setTyping(true)}
+function setTyping(on){typing=!!on&&!!sel&&!(byNum(sel)||{}).paused;$("termwrap").classList.toggle("on",typing);document.body.classList.toggle("typing",typing);$("side").classList.toggle("active",!typing&&!inOv());const x=byNum(sel);if(x)keysBar(x);if(sel)applyMode();if(typing){$("scr").focus();const w=$("termwrap");w.scrollTop=w.scrollHeight}else if(document.activeElement===$("scr"))$("scr").blur()}
+// typeNow: in the chat view you answer in the message field, in the terminal view you type into the session
+function replyNow(){if(chatOn())$("msg").focus();else setTyping(true)}
+function openSession(n,typeNow){setView("list");closeQueue();sel=n;render();document.body.classList.add("open");if(typeNow&&!mobile())replyNow()}
 
 /* keys typed into the session go in order, a few ms batched */
 let kbuf="",ksend=null;
-function sendKeys(d){const w=$("termwrap");if(histN)histReset();w.scrollTop=w.scrollHeight;kbuf+=d;if(!ksend)ksend=Promise.resolve().then(flushKeys)}
+function sendKeys(d){const w=$("termwrap");if(selInTerm())getSelection().removeAllRanges();selDown=false;if(histN)histReset();w.scrollTop=w.scrollHeight;kbuf+=d;if(!ksend)ksend=Promise.resolve().then(flushKeys)}
 async function flushKeys(){while(kbuf){const d=kbuf;kbuf="";await api("/api/keys",{n:sel,data:d})}ksend=null}
 // hk: the shortcut by the physical key, so j/k/v/u/… work on the Russian layout too.
 function hk(e){const c=e.code||"";if(/^Key[A-Z]$/.test(c))return e.shiftKey?c[3]:c[3].toLowerCase();if(c==="Slash"&&e.shiftKey)return"?";if(/^Digit\d$/.test(c))return c[5];return e.key}
@@ -526,9 +922,9 @@ document.addEventListener("drop",e=>{const d=e.target.closest("[data-drop]");if(
   if(d.dataset.drop==="+"){const g=prompt("Название новой группы");if(g&&g.trim())moveTo(n,g.trim())}else moveTo(n,d.dataset.drop)});
 
 /* ---------------- views ---------------- */
-function curView(){const b=document.body.classList;return b.contains("ov")?"ov":b.contains("vfeed")?"feed":b.contains("vlim")?"lim":"list"}
-function setView(v){const b=document.body.classList;b.toggle("ov",v==="ov");b.toggle("vfeed",v==="feed");b.toggle("vlim",v==="lim");
-  if(v!=="list")setTyping(false);if(v==="ov"){gsel=sel;render()}if(v==="feed")loadFeed();if(v==="lim")drawLim();drawTabs()}
+function curView(){const b=document.body.classList;return b.contains("ov")?"ov":b.contains("vfeed")?"feed":b.contains("vlim")?"lim":b.contains("vstat")?"stat":b.contains("vmac")?"mac":"list"}
+function setView(v){const b=document.body.classList;b.toggle("ov",v==="ov");b.toggle("vfeed",v==="feed");b.toggle("vlim",v==="lim");b.toggle("vstat",v==="stat");b.toggle("vmac",v==="mac");
+  if(v!=="list")setTyping(false);if(v==="ov"){gsel=sel;render()}else closePeek();if(v==="feed")loadFeed();if(v==="lim")drawLim();if(v==="stat")loadStat();if(v==="mac")macOpen();else macClose();drawTabs()}
 function drawTabs(){const v=curView();$("tabs").innerHTML=tabsList().filter(t=>t.on||t.id==="list").map(t=>`<button class="tab${v===t.id?" on":""}" data-tab="${t.id}">${TABN[t.id][0]}${TABN[t.id][1]?` <kbd>${TABN[t.id][1]}</kbd>`:""}</button>`).join("")}
 
 /* ---------------- feed: what happened ---------------- */
@@ -544,11 +940,102 @@ function drawFeed(){const q=FQ.toLowerCase();
     h+=`<div class="fe" ${e.n?`data-open="${e.n}"`:""} style="--kc:${kc}"><span class="tm">${d.toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}</span>${e.n?`<span class="who">#${e.n} ${esc(e.title||"")}</span>`:""}<span class="what">${esc(what)}</span></div>`}
   $("feed").innerHTML=h}
 
+/* ---------------- the Mac terminal: a plain shell in tmux, streamed like a session ---------------- */
+var mes=null,mfont=(()=>{try{return +localStorage.getItem("macFont")||(mobile()?11:13)}catch(e){return 13}})(),mtyping=false,mrsT=0,mhist=[],mhi=-1;
+const MKEYS=[["Esc","\x1b"],["Tab","\t"],["Ctrl-C","\x03"],["Ctrl-D","\x04"],["Ctrl-Z","\x1a"],["Ctrl-L","\x0c"],["Ctrl-R","\x12"],["↑","\x1b[A"],["↓","\x1b[B"],["←","\x1b[D"],["→","\x1b[C"],["q","q"],["y","y"],["⏎","\r"]];
+function macSize(){const w=$("mwrap"),cw=mfont*0.602,lh=mfont*1.25;return{cols:Math.max(30,Math.floor((w.clientWidth-20)/cw)),rows:Math.max(8,Math.floor((w.clientHeight-16)/lh))}}
+function macOpen(){if(!$("mac").querySelector(".mkeys").children.length)$("mac").querySelector(".mkeys").innerHTML=MKEYS.map(([l,d],i)=>`<button type="button" class="b" data-mk="${i}">${esc(l)}</button>`).join("");
+  $("mscr").style.fontSize=mfont+"px";if(mes)return;const z=macSize();$("mst").textContent="подключаю…";
+  mes=new EventSource(`/api/sh/stream?cols=${z.cols}&rows=${z.rows}`);
+  mes.onopen=()=>{$("mst").textContent="на связи · "+z.cols+"×"+z.rows};
+  mes.onmessage=e=>{const f=JSON.parse(e.data),w=$("mwrap"),bottom=w.scrollHeight-w.scrollTop-w.clientHeight<40;$("mscr").innerHTML=f.html;if(bottom)w.scrollTop=w.scrollHeight};
+  mes.onerror=()=>{$("mst").textContent="нет связи с Маком — переподключаюсь…"};
+  mes.addEventListener("gone",()=>{macClose();$("mst").textContent="оболочка закрыта — «Новая оболочка» откроет новую"})}
+function macClose(){if(mes){mes.close();mes=null}macTyping(false)}
+var mkb="",mks=null;
+function macKeys(d){mkb+=d;if(!mks)mks=Promise.resolve().then(async()=>{while(mkb){const x=mkb;mkb="";await api("/api/sh/keys",{data:x})}mks=null})}
+function macTyping(on){mtyping=on;$("mwrap").classList.toggle("on",on)}
+$("mwrap").addEventListener("click",()=>{if(getSelection().toString())return;if(mobile()){$("min").focus();return}macTyping(true);$("mscr").focus()});
+$("mscr").addEventListener("blur",()=>macTyping(false));
+$("mscr").addEventListener("keydown",e=>{if(!mtyping)return;e.stopPropagation();if(e.metaKey&&(e.key==="c"||e.key==="v"))return;const d=keyBytes(e);if(d!=null){e.preventDefault();macKeys(d)}});
+$("mscr").addEventListener("paste",e=>{if(!mtyping)return;e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");if(t)macKeys("\x1b[200~"+t.replace(/\r\n/g,"\n")+"\x1b[201~")});
+$("mac").addEventListener("click",e=>{const k=e.target.closest("[data-mk]");if(k){macKeys(MKEYS[+k.dataset.mk][1]);return}
+  const m=e.target.closest("[data-m]");if(!m)return;const a=m.dataset.m;
+  if(a==="zm"||a==="zp"){mfont=Math.max(8,Math.min(20,mfont+(a==="zp"?1:-1)));try{localStorage.setItem("macFont",mfont)}catch(_){}$("mscr").style.fontSize=mfont+"px";macResize();return}
+  if(a==="restart"){const z=macSize();api("/api/sh/do",{do:"restart",cols:z.cols,rows:z.rows}).then(ok=>{if(ok){macClose();macOpen();toast("Новая оболочка")}})}});
+$("mform").addEventListener("submit",e=>{e.preventDefault();const i=$("min"),t=i.value;if(t.trim()){mhist.push(t);if(mhist.length>100)mhist.shift()}mhi=-1;i.value="";macKeys(t+"\r");const w=$("mwrap");w.scrollTop=w.scrollHeight});
+$("min").addEventListener("keydown",e=>{e.stopPropagation();const i=$("min");
+  if(e.key==="ArrowUp"&&mhist.length){e.preventDefault();mhi=mhi<0?mhist.length-1:Math.max(0,mhi-1);i.value=mhist[mhi];return}
+  if(e.key==="ArrowDown"&&mhi>=0){e.preventDefault();mhi++;if(mhi>=mhist.length){mhi=-1;i.value=""}else i.value=mhist[mhi];return}
+  if(e.key==="Escape"){e.preventDefault();i.blur()}
+  if(e.key==="c"&&e.ctrlKey){e.preventDefault();macKeys("\x03")}});
+function macResize(){clearTimeout(mrsT);mrsT=setTimeout(()=>{if(curView()!=="mac")return;const z=macSize();api("/api/sh/do",{do:"resize",cols:z.cols,rows:z.rows});$("mst").textContent="на связи · "+z.cols+"×"+z.rows},250)}
+window.addEventListener("resize",()=>{if(curView()==="mac")macResize()});
+
+/* ---------------- notifications on the phone (Web Push) ---------------- */
+var PUSH={loaded:false,on:false,subs:null};
+const pushOK=()=>"serviceWorker" in navigator&&"PushManager" in window&&window.isSecureContext;
+function pushState(){if(!window.isSecureContext)return"нужен HTTPS — открой через адрес Tailscale (см. ниже)";if(!("serviceWorker" in navigator)||!("PushManager" in window))return/iPhone|iPad/.test(navigator.userAgent)?"на iPhone — только из приложения на экране Домой":"браузер не умеет уведомления";
+  if(Notification.permission==="denied")return"запрещены в настройках телефона/браузера";return PUSH.on?"включены":"выключены"}
+async function swReg(){if(!pushOK())return null;try{return await navigator.serviceWorker.register("/sw.js",{scope:"/"})}catch(e){return null}}
+const u8=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0))};
+async function pushLoad(){try{const r=await fetch("/api/push/key");if(r.ok){const d=await r.json();PUSH.key=d.key;PUSH.subs=d.subs}}catch(e){}
+  const reg=await swReg();if(reg){const sub=await reg.pushManager.getSubscription();PUSH.on=!!sub}PUSH.loaded=true}
+async function pushOn(){const reg=await swReg();if(!reg){toast("Уведомления здесь недоступны: "+pushState(),true);return}
+  const perm=await Notification.requestPermission();if(perm!=="granted"){toast("Уведомления не разрешены",true);return}
+  if(!PUSH.key)await pushLoad();try{const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUSH.key)});
+    const r=await fetch("/api/push/sub",{method:"POST",headers:{"X-Squad-Key":KEY,"Content-Type":"application/json"},body:JSON.stringify(sub)});
+    if(r.ok){const d=await r.json();PUSH.on=true;PUSH.subs=d.subs;toast("Уведомления включены")}else toast(await r.text(),true)}catch(e){toast("Не получилось подписаться: "+e.message,true)}}
+async function pushOff(){const reg=await swReg();const sub=reg&&await reg.pushManager.getSubscription();if(sub){await fetch("/api/push/sub?off=1",{method:"POST",headers:{"X-Squad-Key":KEY,"Content-Type":"application/json"},body:JSON.stringify(sub)});await sub.unsubscribe()}
+  PUSH.on=false;await pushLoad();toast("Уведомления выключены")}
+
+/* ---------------- statistics: a lane per session over time, from events.log ---------------- */
+let statZz=false,STAT=null,statH=(()=>{try{return +localStorage.getItem("statH")||3}catch(e){return 3}})(),statAt=0;
+const SK={0:["#4ade80","работает"],4:["#4ade80","запускается"],1:["#f5b942","ждёт тебя"],2:["#f5b942","ждёт тебя"],6:["#b9a3f5","ждёт дирижёра"],5:["#5f5b72","в ожидании"],7:["#5f5b72","в ожидании"],3:["#2e2a3a","спит"]};
+async function loadStat(){try{const r=await fetch("/api/timeline?hours="+statH,{cache:"no-store"});if(r.ok){STAT=await r.json();statAt=Date.now();drawStat()}}catch(e){}}
+setInterval(()=>{if(curView()==="stat"&&!document.hidden)loadStat()},60000);
+const fmtDur=ms=>{const m=Math.round(ms/60000);if(m<60)return m+" мин";const h=Math.floor(m/60);return h+" ч"+(m%60?" "+(m%60)+" мин":"")};
+function drawStat(){const el=$("stat");if(!STAT){el.innerHTML='<b style="font-size:15px">Статистика</b><p class="hint">загружаю…</p>';return}
+  const T=STAT,W=Math.max(640,el.clientWidth-44),LX=230,RX=230,X0=LX,PW=W-LX-RX,span=T.to-T.from,xs=t=>X0+(t-T.from)/span*PW;
+  const workers=T.lanes.filter(l=>l.live&&!l.conductor&&!l.assistant),sum=(f)=>workers.reduce((a,l)=>a+l[f],0);
+  let h=`<div class="sh"><b class="t">Статистика</b><span class="seg">${[[3,"3 ч"],[8,"8 ч"],[24,"сутки"],[72,"3 дня"],[168,"неделя"]].map(([v,l])=>`<button data-sh="${v}" class="${statH===v?"on":""}">${l}</button>`).join("")}</span><span class="hint">обновляется раз в минуту · клик по дорожке — открыть сессию</span></div>`;
+  h+=`<div class="kp"><span>сейчас в работе <b style="color:var(--green)">${T.now}</b> из ${workers.length}</span><span>в среднем одновременно <b>${(T.avg||0).toFixed(1).replace(".",",")}</b></span><span>пик <b>${T.peak}</b></span><span>агенты работали <b>${fmtDur(sum("work"))}</b></span><span>ждали тебя <b style="color:var(--yellow)">${fmtDur(sum("wait"))}</b></span><span>ждали дирижёра <b style="color:var(--accent2)">${fmtDur(sum("wcond"))}</b></span></div>`;
+  h+=`<div class="lg">${[["#4ade80","работает"],["#f5b942","ждёт тебя"],["#b9a3f5","ждёт дирижёра"],["#5f5b72","в ожидании"],["#2e2a3a","спит"]].map(([c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join("")}</div>`;
+  // ticks
+  const H=statH,stepMin=H<=3?30:H<=8?60:H<=24?180:H<=72?720:1440,tk=[];{const d=new Date(T.from);d.setSeconds(0,0);let m=d.getHours()*60+d.getMinutes();m=Math.ceil(m/stepMin)*stepMin;const t0=new Date(d);t0.setHours(0,0,0,0);for(let t=t0.getTime()+m*60000;t<=T.to;t+=stepMin*60000)tk.push(t)}
+  const tlab=t=>{const d=new Date(t);return stepMin>=720?d.toLocaleDateString("ru",{weekday:"short",day:"numeric"})+(stepMin===720?" "+String(d.getHours()).padStart(2,"0")+":00":""):String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")};
+  // parallel chart
+  const P=T.par||[],pk=Math.max(T.peak,1),CH=64,pts=P.map((v,i)=>`${(X0+(i+.5)/P.length*PW).toFixed(1)},${(CH-v/pk*(CH-8)).toFixed(1)}`).join(" ");
+  h+=`<svg width="${W}" height="${CH+8}" role="img" aria-label="Сколько агентов работало одновременно"><text x="0" y="22" font-size="12.5" fill="#f1eff7" font-weight="600">В работе одновременно</text><text x="0" y="40" font-size="11.5" fill="#b4b0c5">пик ${T.peak}</text>
+    <polygon points="${X0},${CH} ${pts} ${X0+PW},${CH}" fill="#4ade80" fill-opacity=".12"/><polyline points="${pts}" fill="none" stroke="#4ade80" stroke-width="1.5"/><line x1="${X0}" y1="${CH+.5}" x2="${X0+PW}" y2="${CH+.5}" stroke="#2a2736"/></svg>`;
+  const lane=(l,dim)=>{const segs=l.segs.map(s=>{const x=xs(s.a),w=Math.max(1.5,xs(s.b)-x),c=(SK[s.k]||SK[5])[0],d=new Date(s.a),e=new Date(s.b),hm=t=>String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");
+      return`<rect x="${x.toFixed(1)}" y="8" width="${w.toFixed(1)}" height="16" rx="3" fill="${c}"${dim?' fill-opacity=".55"':""}><title>${esc(s.l||(SK[s.k]||SK[5])[1])} · ${hm(d)}–${hm(e)} (${fmtDur(s.b-s.a)})</title></rect>`}).join("");
+    const st=SK[l.k]||SK[5],name=l.conductor?"Дирижёр":l.assistant?"Помощник":esc(l.title);
+    const tot=[l.work?"работал "+fmtDur(l.work):"",l.wait?"ждал тебя "+fmtDur(l.wait):""].filter(Boolean).join(" · ");
+    return`<svg class="ln" width="${W}" height="40" ${l.live?`data-sl="${l.n}"`:""} role="img" aria-label="${name}: ${esc(l.label||st[1])}"><rect class="bg" x="0" y="2" width="${W}" height="28" rx="6" fill="transparent"/>
+      <text x="8" y="21" font-size="12.5" fill="${dim?"#8a86a0":"#f1eff7"}" font-weight="600">${!l.conductor&&!l.assistant?`<tspan fill="#8a86a0">#${l.n} </tspan>`:""}${name.length>26?name.slice(0,25)+"…":name}</text>
+      <rect x="${X0}" y="15" width="${PW}" height="2" fill="#1e1b28"/>${segs}
+      <text x="${X0+PW+14}" y="15" font-size="12" fill="${l.live?st[0]==="#2e2a3a"?"#8a86a0":st[0]:"#8a86a0"}">${esc((t=>t.length>34?t.slice(0,33)+"…":t)(l.live?(l.label||st[1]):"закрыта"))}</text><text x="${X0+PW+14}" y="29" font-size="11" fill="#8a86a0">${tot}</text></svg>`};
+  const live=T.lanes.filter(l=>l.live&&!l.asleep),closed=T.lanes.filter(l=>!l.live&&!l.asleep),slept=T.lanes.filter(l=>l.asleep);
+  const grid=`<svg width="${W}" height="22">${tk.filter(t=>xs(t)<X0+PW-56).map(t=>`<text x="${xs(t).toFixed(1)}" y="15" text-anchor="middle" font-size="11" fill="#8a86a0">${tlab(t)}</text>`).join("")}<text x="${X0+PW}" y="15" text-anchor="end" font-size="11" fill="#ec6f9c" dx="-2">сейчас</text></svg>`;
+  h+=grid+live.map(l=>lane(l,false)).join("");
+  if(closed.length)h+=`<div class="closedh">Закрытые за это время · ${closed.length}</div>`+closed.map(l=>lane(l,true)).join("");
+  if(slept.length)h+=`<button class="b bzz" data-szz="1" aria-expanded="${statZz}" style="margin-top:12px">${statZz?"▾":"▸"} Спали весь период · ${slept.length}</button>`+(statZz?slept.map(l=>lane(l,true)).join(""):`<div class="hint" style="margin:6px 0 4px">${slept.map(l=>"#"+l.n+" "+esc(l.title)).join(" · ")}</div>`);
+  h+=grid;
+  el.innerHTML=h;
+  el.querySelectorAll("[data-sh]").forEach(b=>b.onclick=()=>{statH=+b.dataset.sh;try{localStorage.setItem("statH",statH)}catch(e){}STAT=null;drawStat();loadStat()});
+  el.querySelectorAll("[data-sl]").forEach(s=>s.onclick=()=>openSession(+s.dataset.sl,true));
+  const zb=el.querySelector("[data-szz]");if(zb)zb.onclick=()=>{statZz=!statZz;drawStat()}}
+window.addEventListener("resize",()=>{if(curView()==="stat")drawStat()});
+
 /* ---------------- resources: limits, disk, places ---------------- */
 const fmtU=v=>!v?"0":v>=1e6?(v/1e6).toFixed(1).replace(".",",")+" млн":v>=1e3?Math.round(v/1e3)+" тыс":String(Math.round(v));
 function drawLim(){if(!S)return;const c=S.capacity||{},cl=v=>Math.max(0,Math.min(100,v||0)),barc=v=>v>=85?"var(--red)":v>=70?"var(--yellow)":"var(--green)";
   const card=(t,big,sub,bar)=>`<div class="lc"><h4>${t}</h4><div class="big">${big}</div>${sub?`<div style="color:var(--dim);font-size:13px;margin-top:2px">${sub}</div>`:""}${bar!=null?`<div class="bar"><i style="width:${cl(bar)}%;background:${barc(bar)}"></i></div>`:""}</div>`;
   let h='<b style="font-size:15px">Ресурсы</b><div class="lgrid" style="margin-top:12px">';
+  {const cnt={you:0,cond:0,done:0,work:0,ext:0,zz:0};let lead=0;for(const x of sessions()){if(x.conductor||x.assistant){lead++;continue}cnt[bcol(x)]++}
+   const act=cnt.you+cnt.cond+cnt.done+cnt.work+cnt.ext;
+   h+=card("Сессии в работе",`<span style="color:var(--green)">${cnt.work}</span> работают`,`всего открыто ${act}${lead?" + дирижёр и помощник":""} · ждут тебя ${cnt.you} · ждут дирижёра ${cnt.cond} · готово ${cnt.done} · в ожидании ${cnt.ext} · спят ${cnt.zz}`,null)}
   const rs=t=>{if(!t||t.startsWith("0001"))return"";const d=new Date(t),m=Math.round((d-Date.now())/60000);if(m<=0)return"сбрасывается";if(m<60)return"сброс через "+m+" мин";if(m<1440)return"сброс через "+Math.floor(m/60)+" ч "+(m%60)+" мин";return"сброс "+d.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"short"})+" в "+d.toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})};
   if(S.usage_real)h+=card("Лимит 5 часов",Math.round(S.usage_5h||0)+"%","как в /usage · "+rs(S.reset_5h),S.usage_5h||0)+card("Лимит недели",Math.round(S.usage_week||0)+"%","как в /usage · "+rs(S.reset_week),S.usage_week||0);
   else if(S.budgeted)h+=card("Лимит 5 часов",Math.round(S.usage_5h||0)+"%",fmtU(S.units_5h)+" ед. · оценка по логам",S.usage_5h||0)+card("Лимит недели",Math.round(S.usage_week||0)+"%",fmtU(S.units_week)+" ед. · оценка по логам",S.usage_week||0);
@@ -573,28 +1060,219 @@ function gmove(dir){
     if(dir==="left"){ok=dx<-4&&Math.abs(dy)<a.height*.6;d=-dx+Math.abs(dy)*3}if(dir==="right"){ok=dx>4&&Math.abs(dy)<a.height*.6;d=dx+Math.abs(dy)*3}
     if(dir==="up"){ok=dy<-4;d=-dy*2+Math.abs(dx)}if(dir==="down"){ok=dy>4;d=dy*2+Math.abs(dx)}if(ok&&d<bd){bd=d;best=e}}
   if(!best&&(dir==="left"||dir==="right"))best=items[items.indexOf(from)+(dir==="right"?1:-1)];
-  if(best){gsel=+best.dataset.g;render();const el=document.querySelector(`#grid [data-g="${gsel}"]`);el&&el.scrollIntoView({block:"nearest",behavior:"smooth"})}
+  if(best){gsel=+best.dataset.g;drawBoard();const el=document.querySelector(`#grid [data-g="${gsel}"]`);el&&el.scrollIntoView({block:"nearest",behavior:"smooth"})}
 }
+
+/* ---------------- board (v): sessions by what they need from you ---------------- */
+const BCOLS=[["you","Ждут тебя","var(--yellow)"],["cond","Ждут дирижёра","var(--accent2)"],["done","Готово, проверь","var(--sky)"],["work","Работают","var(--green)"],["ext","В ожидании","var(--faint)"]];
+let zzOpen=false;
+const GCOL={qa:"var(--cyan)",dev:"var(--accent2)"};
+const bidle=x=>{const t=x.active_at;return!t||t.startsWith("0001")?0:Math.max(0,(Date.now()-Date.parse(t))/60000)};
+// a worker's question nobody answered: its own to the user (kind 1), or the conductor's after 10 min
+const bescal=x=>!!x.question&&(x.kind===1||(x.kind===6&&bidle(x)>=10));
+function bcol(x){if(x.permission||x.menu||x.calls||x.kind===2||bescal(x))return"you";if(x.paused||x.kind===3)return"zz";if(x.kind===6)return"cond";if(x.kind===1)return"done";if(x.kind===5||x.kind===7)return"ext";return"work"}
+function fmtD(v){return(Math.round(v*10)/10).toString().replace(".",",")}
+function bopts(lines){const L=(lines||[]).map(l=>l.replace(/^\s*│/,"").replace(/│?\s*$/,""));let end=-1,out=[];
+  for(let k=L.length-1;k>=0;k--){if(CK_OPT.test(L[k])){end=k;break}}if(end<0)return out;let k=end;while(k>0&&CK_OPT.test(L[k-1]))k--;
+  for(let j=k;j<=end;j++){const m=L[j].match(CK_OPT);out.push({n:m[1],label:m[2]})}return out}
+function bgroup(x){const g=x.group||"";const name=GNAME[g]!==undefined?GNAME[g]:g;const c=x.color?CHEX[x.color]:GCOL[g];return name?`<span class="gdot" style="--gc:${c||"var(--faint)"}"><i></i>${esc(name==="разработка"?"Разработка":name)}</span>`:""}
+function bcmd(lines){const L=(lines||[]).map(l=>l.replace(/^\s*│/,"").replace(/│?\s*$/,"").trim());let k=L.findIndex(l=>/^Do you want/i.test(l));if(k<0)return"";const out=[];
+  for(let j=k-1;j>=0;j--){const t=L[j];if(/^[╭─└┌]/.test(t)||/^[⏺●❯]/.test(t)||/^(Bash command|Edit file|Create file|Write|Read file|Fetch|.* command)$/i.test(t))break;if(t)out.unshift(t)}return out.join("\n")}
+// the question its last answer ends with; numbered options become buttons that answer with that line
+function bquest(x,head,btns){const L=(x.question||"").split("\n"),q=L[0].replace(/^\**\s*вопрос\s*:?\s*\**\s*/i,"");
+  const opts=L.slice(1).map(l=>l.match(/^\s*(\d)[.)]\s+(.+)/)).filter(Boolean);
+  return`<div class="bq"><span class="bqh">${head}</span> ${esc(q)}</div>`+(opts.length?(btns?`<div class="acts col">${opts.map(m=>`<button class="b" data-bsay="${x.number}" data-bt="${esc(m[1]+". "+m[2])}" title="${esc(m[2])}">${m[1]} · ${esc(m[2].length>90?m[2].slice(0,89)+"…":m[2])}</button>`).join("")}<button class="b" data-bwrite="${x.number}">Свой ответ…</button></div>`:`<div class="ln">${opts.map(m=>esc(m[1]+". "+m[2])).join(" · ")}</div>`):(btns?`<div class="acts"><button class="b" data-bwrite="${x.number}">Ответить…</button></div>`:""))}
+function bask(x){
+  if(!x.permission&&!x.menu&&x.question){const late=x.kind===6;return(late?`<div class="ln" style="color:var(--yellow)">Дирижёр не ответил за ${Math.round(bidle(x))} мин — можно ответить самому</div>`:"")+bquest(x,late?"Вопрос дирижёру:":"Вопрос тебе:",true)}
+  if(x.permission){const o=bopts(x.preview).filter(v=>v.n<="5");const ct=x.permission.length>2?x.permission:bcmd(x.preview);
+    const btn=o.length?o.map(v=>`<button class="b${v.n==="1"?" pri":""}" data-bp="${x.number}:${v.n}" data-bl="${esc(ckLabel(v.label))}" data-bno="${/^No/i.test(v.label)?1:""}">${esc(ckLabel(v.label).replace(/^Да, и больше не спрашивать.*/,"Да, не спрашивать").replace(/^Нет, сказать.*/,"Нет"))}</button>`).join(""):`<button class="b pri" data-bp="${x.number}:1" data-bl="Да">Да</button>`;
+    return`<div class="bq perm">Разрешить?</div>${ct?`<code>${esc(ct)}</code>`:""}<div class="acts">${btn}</div>`}
+  const mn=x.menu;if(mn){if(mn.multi||mn.review)return`<div class="bq">${esc(mn.question||"Выбор в меню")}</div><div class="ln">Несколько вариантов — ответь в сессии (Enter)</div>`;
+    return`<div class="bq">${esc(mn.question||"Нужен выбор")}</div><div class="acts col">`+(mn.options||[]).map(o=>o.free||o.chat?`<button class="b" data-bfree="${x.number}:${o.number}">${o.free?"Свой ответ…":"Обсудить"}</button>`:`<button class="b${o.recommended?" pri":""}" data-bans="${x.number}:${o.number}" title="${esc(o.desc||"")}">${o.number} · ${esc(o.label.replace(/\s*\(Recommended\)$/,""))}</button>`).join("")+`</div>`}
+  return`<div class="bq">${esc(x.recap||x.status||"")}</div><div class="ln">Пробел — открыть и ответить</div>`}
+function bmrs(x){return(x.mrs||[]).slice(0,3).map(r=>`<span class="badge ${r.state||""}">${esc(r.ref.replace(/.*merge_requests\//,"!"))}${r.state==="merged"?" влит":r.state==="closed"?" закрыт":""}</span>`).join("")}
+function bcard(x,c){const sel=x.number===gsel?" sel":"",bo=bopt();const t=`<div class="t"><span class="num">#${x.number}</span><b>${esc(x.title)}</b></div>`;
+  if(c==="you")return`<article class="bc ask${sel}" data-g="${x.number}">${t}${bo.answer?bask(x):`<div class="bq">${esc(x.permission?"Разрешить: "+x.permission:x.menu?(x.menu.question||"Нужен выбор"):(x.recap||x.status))}</div>`}<div class="ft">${bgroup(x)}${atHTML(x)}</div></article>`;
+  if(c==="done"||c==="cond")return`<article class="bc${sel}" data-g="${x.number}">${t}${x.question?bquest(x,x.kind===6?"Вопрос дирижёру:":"Вопрос:",false):`<div class="ln">${esc(x.recap||x.status)}</div>`}${bo.badges&&(x.mrs||[]).length?`<div class="ft">${bmrs(x)}</div>`:""}<div class="ft">${bgroup(x)}${atHTML(x)}</div></article>`;
+  return`<article class="bc${sel}" data-g="${x.number}">${t}<div class="ln">${esc(x.status)}</div>${bo.term&&c==="work"&&(x.preview||[]).length?`<code>${(x.preview||[]).slice(-4).map(esc).join("\n")}</code>`:""}<div class="ft">${bgroup(x)}${bo.badges?bmrs(x):""}</div></article>`}
+const ICON_C='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20L15 9"/><path d="M14 4l6 6-3 1-4-4 1-3z"/><circle cx="6" cy="18" r="1.5"/></svg>';
+const ICON_A='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8L12 3z"/></svg>';
+function bpin(x){const cond=!!x.conductor,ask=x.permission||x.menu||x.calls;
+  return`<article class="bpin ${cond?"cond":"asst"}${x.number===gsel?" sel":""}" data-g="${x.number}"><span class="ic">${cond?ICON_C:ICON_A}</span><div class="bd"><div class="hd"><b>${cond?"Дирижёр":"Помощник"}</b><span class="st" style="color:${ask?"var(--yellow)":KIND[x.kind]||"var(--dim)"}">● ${esc(x.status)}</span></div><div class="ln">${esc(x.recap||about(x)||"")}</div></div><button class="b${ask?" pri":""}" data-bwrite="${x.number}">${ask?"Ответить":"Написать"}</button></article>`}
+function drawBoard(){if(!S)return;const all=sessions();const cols={you:[],cond:[],done:[],work:[],ext:[],zz:[]};const pins=[];
+  for(const x of all){if(x.conductor||x.assistant){pins.push(x);continue}cols[bcol(x)].push(x)}
+  pins.sort((a,b)=>(b.conductor?1:0)-(a.conductor?1:0));
+  const u=S.usage_real||S.budgeted,v=S.vpn_down;
+  const bo=bopt(),ba=band();if(!bo.done){cols.work.push(...cols.done);cols.done=[]}if(!bo.cond){cols.done.push(...cols.cond);cols.cond=[]}
+  $("bsum").innerHTML=`<div class="grp">${[["you","ждут тебя","var(--yellow)"],["cond","ждут дирижёра","var(--accent2)"],["done","готово","var(--sky)"],["work","работают","var(--green)"],["ext","в ожидании","var(--text)"],["zz","спят","var(--text)"]].map(([k,l,c])=>`<span><b style="color:${c}">${cols[k].length}</b> ${l}</span>`).join("")}</div><div class="sp"></div><div class="grp">`+
+    (u&&ba.week?`<span>неделя <b>${Math.round(S.usage_week||0)}%</b></span>`:"")+(u&&ba.h5?`<span>окно 5 ч <b>${Math.round(S.usage_5h||0)}%</b></span>`:"")+
+    (S.density_ok&&ba.density?`<span>${S.parallel?"параллельно":"плотность"} <b>${fmtD(S.density)} ч</b></span>`:"")+
+    (S.disk_gb>=0&&ba.disk?`<span>диск <b${S.disk_gb<20?' style="color:var(--red)"':""}>${Math.round(S.disk_gb)} ГБ</b></span>`:"")+
+    (ba.vpn||v?`<span class="vdot${v?" bad":""}"><i></i>${v?"VPN лежит":"VPN"}</span>`:"")+`</div>`;
+  const asMap=bo.view==="map"&&innerWidth>900;document.body.classList.toggle("bmap",asMap);
+  if(asMap){drawMap(cols,pins,bo);if(peekN)drawPeek();return}
+  $("bpin").innerHTML=pins.map(bpin).join("");
+  const shown=BCOLS.filter(([k])=>!(k==="cond"&&!bo.cond)&&!(k==="done"&&!bo.done)&&!(k==="work"&&!bo.work)&&!(k==="ext"&&bo.ext==="hide"));
+  $("bcols").style.gridTemplateColumns=innerWidth>1200?`repeat(${shown.length},minmax(0,1fr))`:"";
+  $("bcols").innerHTML=shown.map(([k,l,c])=>{const L=cols[k];let body;
+    const li=x=>`<li data-g="${x.number}" class="${x.number===gsel?"sel":""}"><span><span class="num" style="color:var(--faint);font-size:12px">#${x.number}</span> ${esc(x.title)}</span><span class="s">${x.paused?"спит":esc(x.status)}</span></li>`;
+    if(k==="ext"&&bo.ext==="list")body=L.length?`<ul class="blist">${L.map(li).join("")}</ul>`:"";
+    else body=L.map(x=>bcard(x,k)).join("");
+    if(k==="ext"&&cols.zz.length)body+=`<button class="b bzz" data-bzz="1" aria-expanded="${zzOpen}">${zzOpen?"▾":"▸"} Спят · ${cols.zz.length}</button>`+(zzOpen?`<ul class="blist">${cols.zz.map(li).join("")}</ul>`:"");
+    return`<section class="bcol" aria-label="${l}"><h2><i style="background:${c}"></i>${l} <span>${L.length}</span></h2>${body||`<div class="bempty">${k==="you"?"Никто не ждёт — можно заняться своим":"пусто"}</div>`}</section>`}).join("");
+  if(peekN)drawPeek()}
+/* map: the conductor in the middle, you on top, the outside world below; each session sits by whoever it waits for */
+function drawMap(cols,pins,bo){const el=$("bmap"),W=el.clientWidth||900,cx=W/2;
+  const cond=pins.find(x=>x.conductor),asst=pins.find(x=>x.assistant),ln=[];
+  const C={you:"var(--yellow)",cond:"var(--accent2)",done:"var(--sky)",work:"var(--green)",ext:"var(--faint)"},HX={you:"#f5b942",cond:"#b9a3f5",done:"#6aa8ff",work:"#4ade80",ext:"#8a86a0",asst:"#f59bbd"};
+  const L=(x1,y1,x2,y2,c,d,cl)=>ln.push(`<line${cl?` class="${cl}"`:""} x1="${x1|0}" y1="${y1|0}" x2="${x2|0}" y2="${y2|0}" stroke="${c}" stroke-opacity=".45" stroke-width="1.5"${d?` stroke-dasharray="${d}"`:""}/>`);
+  const short=x=>x.paused?"спит":(x.question?"вопрос":x.permission?"разрешение":x.menu?"выбор в меню":x.status||"");
+  const node=(x,X,Y,col,extra)=>`<div class="mn${x.number===gsel?" sel":""}${extra||""}" data-g="${x.number}" tabindex="0" role="button" aria-label="#${x.number} ${esc(x.title)}: ${esc(short(x))}" style="left:${X|0}px;top:${Y|0}px"><span class="o" style="border-color:${col};color:${col}">${x.number}</span><b>${esc(x.title)}</b><small>${esc(short(x))}</small></div>`;
+  // you: rows on top, as many per row as fit
+  const per=Math.max(1,Math.floor((W-40)/164)),you=cols.you,yrows=Math.ceil(you.length/per),youY=46,row0=150;
+  // the ring: everything that isn't waiting for you, grouped by colour, clockwise from the upper right
+  const ring=[...cols.cond.map(x=>[x,"cond"]),...cols.done.map(x=>[x,"done"]),...cols.work.map(x=>[x,"work"]),...(bo.ext!=="hide"?cols.ext.map(x=>[x,"ext"]):[]),...(asst?[[asst,"asst"]]:[])];
+  const N=ring.length,span=300*Math.PI/180,a0=-60*Math.PI/180,two=N>8,K=two?1.34:1;
+  const need=N?(two?96:156)*N/span:0,maxR=Math.max(150,(W/2-90)/K);
+  const Ra=Math.max(150,need,Math.min(W*0.26,230));let rx=Math.max(150,Math.min(maxR,Ra*1.45)),ry=Math.max(140,Math.min(Ra*0.8,2*Ra-rx>Ra*0.8?2*Ra-rx:Ra*0.8));
+  const topY=yrows?row0+yrows*86:90,avail=($("board").clientHeight||700)-40,fitY=(avail-topY-100)/(2*K);
+  if(fitY>ry)ry=Math.min(fitY,rx*0.95);if(ry*1.5>rx)rx=Math.max(rx,Math.min(maxR,ry*1.5));
+  const cy=topY+ry*K+30,H=Math.max(cy+ry*K+70,avail);
+  let h=`<div class="mn hub" style="left:${cx}px;top:${youY}px;cursor:default"><span class="o" style="border-color:var(--yellow);color:var(--yellow);background:#3a2a12">Ты</span><small>${you.length?you.length+" ждут решения":"никто не ждёт"}</small></div>`;
+  you.forEach((x,i)=>{const r=Math.floor(i/per),inRow=Math.min(per,you.length-r*per),j=i-r*per,X=cx+(j-(inRow-1)/2)*164,Y=row0+r*86;
+    L(cx,youY+50,X,Y-24,HX.you);if(cond)L(cx,cy,X,Y+40,HX.you,"4 4");h+=node(x,X,Y,C.you," ask")});
+  ring.forEach(([x,k],i)=>{const a=a0+(N<2?span/2:span*i/(N-1)),f=two&&i%2?K:1,X=cx+rx*f*Math.cos(a),Y=cy+ry*f*Math.sin(a);
+    L(cx,cy,X,Y,HX[k],k==="ext"?"2 5":"",k==="work"?"flow":k==="cond"?"flowin":"");
+    h+=k==="asst"?`<div class="mn lead${x.number===gsel?" sel":""}" data-g="${x.number}" tabindex="0" role="button" aria-label="Помощник: ${esc(short(x))}" style="left:${X|0}px;top:${Y|0}px"><span class="o" style="border-color:#f59bbd;color:#f59bbd;background:#2b1a26;width:44px;height:44px">${ICON_A}</span><b>Помощник</b><small>${esc(short(x))}</small></div>`:node(x,X,Y,C[k])});
+  h+=cond?`<div class="mn lead${cond.number===gsel?" sel":""}" data-g="${cond.number}" tabindex="0" role="button" style="left:${cx}px;top:${cy|0}px;transform:translate(-50%,-32px)"><span class="o" style="border-color:var(--accent2);color:var(--accent2);background:#2d2545">${ICON_C}</span><b>Дирижёр</b><small>${esc(short(cond))}</small></div>`
+    :`<div class="mn lead" style="left:${cx}px;top:${cy|0}px;transform:translate(-50%,-32px);cursor:default"><span class="o" style="border-color:var(--line2);color:var(--faint)">—</span><b>Дирижёр не запущен</b></div>`;
+  const leg=`<div class="mleg">${[["cond","ждут дирижёра"],["done","готово"],["work","работают"],["ext","в ожидании"]].filter(([k])=>cols[k]&&cols[k].length&&!(k==="ext"&&bo.ext==="hide")).map(([k,l])=>`<span><i style="background:${HX[k]}"></i>${l} ${cols[k].length}</span>`).join("")}</div>`;
+  const zz=cols.zz.length?`<div class="mzz">${zzOpen?`<div class="mzl">${cols.zz.map(x=>`<span data-g="${x.number}" tabindex="0" role="button">#${x.number} ${esc(x.title)}</span>`).join("")}</div>`:""}<button class="b bzz" data-bzz="1" aria-expanded="${zzOpen}">${zzOpen?"▾":"▸"} Спят · ${cols.zz.length}</button></div>`:"";
+  el.style.height="";
+  const html=`<div class="mcv" style="height:${H|0}px">${leg}${zz}<svg aria-hidden="true" viewBox="0 0 ${W} ${H|0}" preserveAspectRatio="none"><ellipse cx="${cx}" cy="${cy|0}" rx="${rx|0}" ry="${ry|0}" fill="none" stroke="#2a2736" stroke-dasharray="3 6"/>${two?`<ellipse cx="${cx}" cy="${cy|0}" rx="${rx*K|0}" ry="${ry*K|0}" fill="none" stroke="#211e2b" stroke-dasharray="3 6"/>`:""}${ln.join("")}</svg>${h}</div>`;
+  if(el._h!==html){el._h=html;el.innerHTML=html}}
+window.addEventListener("resize",()=>{if(document.body.classList.contains("bmap")||(bopt().view==="map"&&curView()==="ov"))drawBoard()});
+{let mw=0;new ResizeObserver(()=>{const w=$("bmap").clientWidth;if(w&&Math.abs(w-mw)>8&&document.body.classList.contains("bmap")){mw=w;drawBoard()}}).observe($("bmap"))}
+$("bmap").addEventListener("keydown",e=>{const c=e.target.closest("[data-g]");if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();e.stopPropagation();c.click()}});
+/* peek: Space on a card — the session's last messages and a reply box, without leaving the board */
+let peekN=0,peekV="",peekBusy=false;
+function openPeek(n){peekN=n;peekV="";document.body.classList.add("peek");$("peek").innerHTML=`<div class="ph"><b></b><button class="b" data-bopen="${n}">Открыть ↵</button><button class="b" data-bclose="1" aria-label="Закрыть просмотр">×</button></div><div class="pa"></div><div class="pc"></div><div class="pl"></div><form><label style="position:absolute;width:1px;height:1px;overflow:hidden" for="pkin">Сообщение</label><button type="button" class="b" data-patt="1" title="Прикрепить файл — или перетащи/вставь его сюда" aria-label="Прикрепить файл">📎</button><input type="file" id="pkfile" multiple hidden><textarea id="pkin" rows="1" placeholder="Ответить…" autocomplete="off" spellcheck="false"></textarea><button type="button" class="b" data-pstop="1" title="Прервать агента — как Esc в терминале (Shift+Esc)">Стоп</button><button class="b pri">Отправить</button></form><div class="hint">Enter — отправить · Shift+Enter — новая строка · Shift+Esc — прервать агента · пробел или Esc — закрыть</div>`;
+  $("peek").querySelector("form").onsubmit=async e=>{e.preventDefault();const i=$("pkin"),t=i.value.trim();if(!t)return;i.value="";if(await api("/api/send",{n:peekN,text:t}))toast("Отправлено");else i.value=t};
+  const pk=$("pkin"),grow=()=>{const tw=growTwin(pk);tw.value=pk.value;const h=Math.min(Math.max(tw.scrollHeight+2,40),160);if(pk.style.height!==h+"px")pk.style.height=h+"px";pk.style.overflowY=tw.scrollHeight+2>160?"auto":"hidden"};pk.addEventListener("input",grow);
+  $("peek").querySelector("[data-patt]").onclick=e=>{e.stopPropagation();$("pkfile").click()};
+  $("pkfile").addEventListener("change",()=>{const fs=[...$("pkfile").files];$("pkfile").value="";peekAttach(fs)});
+  pk.addEventListener("paste",e=>{const fs=clipFiles(e);if(fs.length){e.preventDefault();peekAttach(fs)}});
+  pk.addEventListener("keydown",e=>{e.stopPropagation();
+    if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();$("peek").querySelector("form").requestSubmit();setTimeout(grow,0);return}
+    if(e.key==="Escape"&&e.shiftKey){e.preventDefault();peekStop();return}
+    if(e.key==="Escape"){e.preventDefault();pk.blur()}});
+  $("peek").querySelector("[data-pstop]").onclick=e=>{e.stopPropagation();peekStop()};
+  drawPeek()}
+// the twin: same width and font as the field, off-screen; its scrollHeight is the height the text needs
+function growTwin(el){let t=growTwin.t;if(!t){t=growTwin.t=document.createElement("textarea");t.setAttribute("aria-hidden","true");t.tabIndex=-1;t.style.cssText="position:absolute;left:-9999px;top:0;visibility:hidden;height:0;overflow:hidden;resize:none";document.body.appendChild(t)}
+  const cs=getComputedStyle(el);for(const k of ["font","letterSpacing","lineHeight","padding","border","boxSizing","whiteSpace","wordBreak"])t.style[k]=cs[k];t.style.width=el.clientWidth+"px";return t}
+async function peekAttach(files){if(!peekN||!files.length)return;const ps=await uploadFiles(files,peekN);if(!ps.length)return;const m=$("pkin");if(!m)return;
+  const add=ps.map(qpath).join(" ")+" ",a=m.selectionStart??m.value.length,b=m.selectionEnd??m.value.length,pre=m.value.slice(0,a);
+  m.value=pre+(pre&&!/\s$/.test(pre)?" ":"")+add+m.value.slice(b);m.dispatchEvent(new Event("input"));m.focus()}
+async function peekStop(){if(peekN&&await api("/api/keys",{n:peekN,data:"\x1b"}))toast("Агент прерван — можно поправить и написать заново")}
+function closePeek(){peekN=0;document.body.classList.remove("peek")}
+async function drawPeek(){const x=byNum(peekN);if(!x){closePeek();return}const P=$("peek");P.querySelector(".ph b").textContent=`#${x.number} ${x.title}`;
+  {const pa=P.querySelector(".pa"),need=x.permission||x.menu||x.calls||x.kind===2||bescal(x);const h=need?bcard(x,"you"):"";if(pa.dataset.h!==h){pa.dataset.h=h;pa.innerHTML=h}}
+  P.querySelector(".pl").innerHTML=`<i style="width:8px;height:8px;border-radius:50%;background:${KIND[x.kind]||"var(--faint)"}"></i><b>${esc(x.status)}</b>`;
+  if(peekBusy)return;peekBusy=true;const n=peekN;
+  try{const r=await fetch(`/api/chat?n=${n}&lines=60`+(peekV?`&v=${encodeURIComponent(peekV)}`:""),{cache:"no-store"});const d=r.ok?await r.json():{none:true};if(n!==peekN||d.same)return;
+    const pc=P.querySelector(".pc");if(d.none){pc.innerHTML=`<div class="term" style="font-size:12px;white-space:pre-wrap">${(x.preview||[]).map(esc).join("\n")}</div>`;peekV="";return}
+    // stay where the user scrolled to; follow new messages only when already at the bottom
+    const first=!peekV,atBottom=pc.scrollHeight-pc.scrollTop-pc.clientHeight<60,top=pc.scrollTop;
+    peekV=d.version;pc.innerHTML=d.html;fillMedia(pc,n);pc.scrollTop=first||atBottom?pc.scrollHeight:top}catch(e){}finally{peekBusy=false}}
+setInterval(()=>{if(peekN&&curView()==="ov"&&!document.hidden)drawPeek()},3000);
+$("grid").addEventListener("click",async e=>{const b=e.target.closest("button");
+  if(b){e.stopPropagation();
+    if(b.dataset.bp){const[n,o]=b.dataset.bp.split(":");b.disabled=true;if(await api("/api/approve",{n,opt:o,label:b.dataset.bl||""})){toast(b.dataset.bno?"Отказано — напиши, что делать":"Разрешено");if(b.dataset.bno)openPeek(+n);setTimeout(load,600)}else b.disabled=false;return}
+    if(b.dataset.bans){const[n,o]=b.dataset.bans.split(":");b.disabled=true;if(await api("/api/answer",{n,option:o})){toast("Выбрано");setTimeout(load,600)}else b.disabled=false;return}
+    if(b.dataset.bfree){const[n,o]=b.dataset.bfree.split(":");if(await api("/api/keys",{n,data:o})){openPeek(+n);setTimeout(()=>$("pkin")&&$("pkin").focus(),50)}return}
+    if(b.dataset.bsay){const n=+b.dataset.bsay;b.disabled=true;if(await api("/api/send",{n,text:b.dataset.bt})){toast("Ответил: "+b.dataset.bt.slice(0,40));setTimeout(load,600)}else b.disabled=false;return}
+    if(b.dataset.bwrite){openPeek(+b.dataset.bwrite);setTimeout(()=>$("pkin")&&$("pkin").focus(),50);return}
+    if(b.dataset.bopen){closePeek();openSession(+b.dataset.bopen,true);return}
+    if(b.dataset.bclose){closePeek();return}
+    if(b.dataset.bzz){zzOpen=!zzOpen;drawBoard();return}
+    return}
+  const c=e.target.closest("[data-g]");if(!c)return;e.stopPropagation();const n=+c.dataset.g;
+  if(gsel===n&&e.detail>1){const x=byNum(n);closePeek();if(x&&x.paused)wake(n);else openSession(n,true);return}
+  gsel=n;drawBoard();if(peekN||document.body.classList.contains("bmap"))openPeek(n)});
+
+/* pictures open inside the orchestra, not in a new tab: ←/→ — the others in the same feed */
+let LB=[],LBi=0;
+function lbShow(){const a=LB[LBi];if(!a)return;const box=$("lbox");box.querySelector("img").src=a.href;box.querySelector("img").alt=a.title||"";
+  box.querySelector(".lb-name").textContent=a.title||"";box.querySelector(".lb-n").textContent=LB.length>1?`${LBi+1} из ${LB.length}`:"";box.querySelector("a").href=a.href;
+  box.querySelector(".lb-prev").style.visibility=LBi>0?"":"hidden";box.querySelector(".lb-next").style.visibility=LBi<LB.length-1?"":"hidden"}
+function lbOpen(a){const root=a.closest("#chat,#peek,.pc")||document;LB=[...root.querySelectorAll(".c-img[href]")];LBi=Math.max(0,LB.indexOf(a));$("lbox").classList.add("on");lbShow()}
+function lbClose(){$("lbox").classList.remove("on");$("lbox").querySelector("img").removeAttribute("src")}
+const lbOn=()=>$("lbox").classList.contains("on");
+document.addEventListener("click",e=>{const a=e.target.closest(".c-img[href]");if(!a||e.metaKey||e.ctrlKey||e.shiftKey)return;e.preventDefault();e.stopPropagation();lbOpen(a)},true);
+$("lbox").addEventListener("click",e=>{const b=e.target.closest("[data-lb]");if(b){const d=b.dataset.lb;if(d==="close")lbClose();if(d==="prev"&&LBi>0){LBi--;lbShow()}if(d==="next"&&LBi<LB.length-1){LBi++;lbShow()}return}
+  if(e.target.id==="lbox")lbClose()});
+document.addEventListener("keydown",e=>{if(!lbOn())return;e.preventDefault();e.stopImmediatePropagation();
+  if(e.key==="Escape")lbClose();else if(e.key==="ArrowLeft"&&LBi>0){LBi--;lbShow()}else if(e.key==="ArrowRight"&&LBi<LB.length-1){LBi++;lbShow()}},true);
 function wake(n){api("/api/action",{n,action:"wake"}).then(ok=>{if(ok){toast("Будим…");setTimeout(()=>{esFor=0;load()},4000)}})}
 
 /* ---------------- settings ---------------- */
 const TG=(on,attr)=>`<button class="tg${on?" on":""}" ${attr}></button>`;
 const MV=(attr,i,n)=>`<button class="mv" ${attr} data-d="-1"${i?"":" disabled style=\"opacity:.2\""}>↑</button><button class="mv" ${attr} data-d="1"${i<n-1?"":" disabled style=\"opacity:.2\""}>↓</button>`;
 const SP='<span style="width:34px;flex:none"></span>';
-function drawSettings(){const pa=panels(),to=tools();
-  let h=`<div style="display:flex;align-items:center"><b style="font-size:16px;flex:1">Настройки вида</b><span style="color:var(--faint);font-size:12px">сохраняются сразу · Esc — закрыть</span></div>`;
-  h+=`<h3>Список сессий</h3><div class="srow"><span class="l">Где список</span><span class="seg"><button data-s="side" data-v="left" class="${pget("side")!=="right"?"on":""}">слева</button><button data-s="side" data-v="right" class="${pget("side")==="right"?"on":""}">справа</button></span></div>
-    <div class="srow"><span class="l">Ширина <span class="hint">· тяни край списка мышкой, двойной клик — сброс</span></span><span class="hint">${P.sidew||340} px</span><button class="b k" data-s="sidew0">по умолчанию</button></div>`;
-  h+=`<h3>Вкладки в шапке</h3>`+tabsList().map((t,i,a)=>`<div class="srow"><span class="l">${TABN[t.id][0]}${t.id==="feed"?' <span class="hint">· что происходило: статусы, ответы, отчёты (w)</span>':t.id==="lim"?' <span class="hint">· лимиты, диск, места для воркеров (d)</span>':""}</span>${MV(`data-s="tabmv" data-id="${t.id}"`,i,a.length)}${t.id==="list"?SP:TG(t.on,`data-s="tab" data-id="${t.id}"`)}</div>`).join("");
-  h+=`<h3>Панели диалога — порядок сверху вниз</h3>`+porder().map((id,i,a)=>`<div class="srow"><span class="l">${PNAME[id]}</span>${MV(`data-s="pmv" data-id="${id}"`,i,a.length)}${id==="term"?SP:TG(pa[id],`data-s="panel" data-id="${id}"`)}</div>`).join("")
-    +`<div class="srow"><span class="l">Кнопки A− / A+</span>${TG(pa.zoom,'data-s="panel" data-id="zoom"')}</div><div class="srow"><span class="l">Питомцы внизу</span>${TG(pa.pets,'data-s="panel" data-id="pets"')}</div><div class="srow"><span class="l">Лимит и диск в шапке</span>${TG(pa.pills,'data-s="panel" data-id="pills"')}</div>`;
-  h+=`<h3>Инструменты</h3><div class="srow"><span class="l">«Ждут тебя» закреплены справа <span class="hint">· вместо выезжающей панели (u)</span></span>${TG(to.qdock,'data-s="tool" data-id="qdock"')}</div><div class="srow"><span class="l">Заметки к сессиям <span class="hint">· видны только тебе, находятся поиском</span></span>${TG(to.notes,'data-s="tool" data-id="notes"')}</div>`;
-  const gs=sortGroups(["main",...allGroups()]);
-  h+=`<h3>Группы — порядок и свёрнутые</h3>`+gs.map((g,i,a)=>`<div class="srow"><span class="l">${esc(glabel(g))}${g==="main"?' <span class="hint">· когда не закреплены</span>':""}</span>${MV(`data-s="gmv" data-id="${esc(g)}"`,i,a.length)}<span class="hint">свернуть</span>${TG(!!(P.collapsed||{})[g],`data-s="gcol" data-id="${esc(g)}"`)}</div>`).join("");
-  const pins=sessions().filter(isPinned);
-  h+=`<h3>Закреплённые наверху</h3>`+(pins.length?pins.map(x=>`<div class="srow"><span class="l">#${x.number} ${esc(x.title)}</span><button class="b k" data-s="unpin" data-id="${x.number}">открепить</button></div>`).join(""):'<div class="srow hint">Ничего не закреплено — клавиша f или 📌 у сессии.</div>')
-    +(Array.isArray(P.pins)?`<div class="srow"><span class="l hint">По умолчанию закреплены дирижёр и помощник</span><button class="b k" data-s="pins0">вернуть</button></div>`:"");
-  h+=`<div style="margin-top:18px;display:flex;justify-content:flex-end"><button class="b" data-s="reset">Сбросить вид (заметки останутся)</button></div>`;
+/* settings: a screen with sections (not a pop-up), saved at once */
+let setSec="board";const SSEC=[["board","Доска"],["list","Список и сессия"],["phone","Телефон"],["groups","Группы и закреплённые"],["upd","Обновления"]];
+const BDEF={view:"cols",cond:true,done:true,work:true,ext:"list",answer:true,badges:true,term:false},BAND={week:true,h5:true,density:true,disk:true,vpn:true};
+const bopt=()=>({...BDEF,...(P.board||{})}),band=()=>({...BAND,...(P.band||{})});
+let UPDI=null;
+function drawSettings(){const pa=panels(),to=tools(),bo=bopt(),ba=band();
+  let h=`<header class="sh"><h1>Настройки</h1><span class="hint">сохраняются сразу</span><button class="b" data-s="close">Закрыть · Esc</button></header><div class="sbody"><nav class="snav" aria-label="Разделы настроек">`+
+    SSEC.map(([k,l])=>`<button data-s="sec" data-id="${k}" class="${setSec===k?"on":""}"${setSec===k?' aria-current="page"':""}>${l}</button>`).join("")+
+    `<p class="hint">Тема одна, тёмная. Питомцы и «Офис» убраны.</p></nav><main class="smain">`;
+  if(setSec==="board"){
+    h+=`<h3>Вкладки</h3><div class="sbox">`+tabsList().map((t,i,a)=>`<div class="srow"><span class="l">${TABN[t.id][0]}${TABN[t.id][1]?` <span class="hint">· ${TABN[t.id][1]}</span>`:""}</span>${MV(`data-s="tabmv" data-id="${t.id}"`,i,a.length)}${t.id==="list"?'<span class="hint">всегда</span>':TG(t.on,`data-s="tab" data-id="${t.id}"`)}</div>`).join("")+`</div>
+`;
+    h+=`<h3>Вид доски</h3><div class="sbox"><div class="srow"><span class="l">Как показывать сессии <span class="hint">· карта: дирижёр в центре, сверху ты, снизу внешнее; на телефоне всегда колонки</span></span><span class="seg">${[["cols","колонки"],["map","карта"]].map(([v,l])=>`<button data-s="bview" data-v="${v}" class="${bo.view===v?"on":""}">${l}</button>`).join("")}</span></div></div>`;
+    h+=`<h3>Колонки доски</h3><div class="sbox">
+      <div class="srow"><span class="l"><i class="cdot" style="background:var(--yellow)"></i>Ждут тебя</span><span class="hint">всегда первой</span></div>
+      <div class="srow"><span class="l"><i class="cdot" style="background:var(--accent2)"></i>Ждут дирижёра <span class="hint">· без ответа 10 мин — переезжают в «Ждут тебя»</span></span>${TG(bo.cond,'data-s="board" data-id="cond"')}</div>
+      <div class="srow"><span class="l"><i class="cdot" style="background:var(--sky)"></i>Готово, проверь</span>${TG(bo.done,'data-s="board" data-id="done"')}</div>
+      <div class="srow"><span class="l"><i class="cdot" style="background:var(--green)"></i>Работают</span>${TG(bo.work,'data-s="board" data-id="work"')}</div>
+      <div class="srow"><span class="l"><i class="cdot" style="background:var(--faint)"></i>В ожидании или спят</span><span class="seg">${[["list","списком"],["cards","карточками"],["hide","скрыть"]].map(([v,l])=>`<button data-s="bext" data-v="${v}" class="${bo.ext===v?"on":""}">${l}</button>`).join("")}</span></div></div>`;
+    h+=`<h3>Карточка</h3><div class="sbox">
+      <div class="srow"><span class="l">Отвечать на разрешения и меню прямо с карточки</span>${TG(bo.answer,'data-s="board" data-id="answer"')}</div>
+      <div class="srow"><span class="l">Значки MR</span>${TG(bo.badges,'data-s="board" data-id="badges"')}</div>
+      <div class="srow"><span class="l">Кусок экрана терминала у работающих <span class="hint">· как в старом «Обзоре»</span></span>${TG(bo.term,'data-s="board" data-id="term"')}</div></div>
+      <p class="hint">Пробел на карточке — быстрый просмотр с ответом, Enter — открыть сессию.</p>`;
+    h+=`<h3>Строка-итог</h3><div class="chips">`+[["week","Лимит недели"],["h5","Окно 5 ч"],["density","Плотность"],["disk","Диск"],["vpn","VPN"]].map(([k,l])=>`<button data-s="band" data-id="${k}" aria-pressed="${ba[k]}" class="chipb${ba[k]?" on":""}">${l}</button>`).join("")+`</div>`}
+  else if(setSec==="list"){
+    h+=`<h3>Список сессий</h3><div class="sbox"><div class="srow"><span class="l">Где список</span><span class="seg"><button data-s="side" data-v="left" class="${pget("side")!=="right"?"on":""}">слева</button><button data-s="side" data-v="right" class="${pget("side")==="right"?"on":""}">справа</button></span></div>
+      <div class="srow"><span class="l">Ширина <span class="hint">· тяни край списка мышкой</span></span><span class="hint">${P.sidew||340} px</span><button class="b" data-s="sidew0">по умолчанию</button></div></div>`;
+    h+=`<h3>Сессия: панели сверху вниз</h3><div class="sbox">`+porder().map((id,i,a)=>`<div class="srow"><span class="l">${PNAME[id]}</span>${MV(`data-s="pmv" data-id="${id}"`,i,a.length)}${id==="term"?SP:TG(pa[id],`data-s="panel" data-id="${id}"`)}</div>`).join("")
+      +`<div class="srow"><span class="l">Кнопки A− / A+</span>${TG(pa.zoom,'data-s="panel" data-id="zoom"')}</div><div class="srow"><span class="l">Лимит и диск в шапке <span class="hint">· в «Списке»</span></span>${TG(pa.pills,'data-s="panel" data-id="pills"')}</div></div>`;
+    h+=`<h3>Инструменты</h3><div class="sbox"><div class="srow"><span class="l">«Ждут тебя» закреплены справа <span class="hint">· вместо выезжающей панели (u)</span></span>${TG(to.qdock,'data-s="tool" data-id="qdock"')}</div><div class="srow"><span class="l">Заметки к сессиям <span class="hint">· видны только тебе</span></span>${TG(to.notes,'data-s="tool" data-id="notes"')}</div></div>`}
+  else if(setSec==="groups"){const gs=sortGroups(["main",...allGroups()]);
+    h+=`<h3>Группы: порядок и свёрнутые</h3><div class="sbox">`+gs.map((g,i,a)=>`<div class="srow"><span class="l">${esc(glabel(g))}</span>${MV(`data-s="gmv" data-id="${esc(g)}"`,i,a.length)}<span class="hint">свернуть</span>${TG(!!(P.collapsed||{})[g],`data-s="gcol" data-id="${esc(g)}"`)}</div>`).join("")+`</div>`;
+    const pins=sessions().filter(isPinned);
+    h+=`<h3>Закреплённые наверху списка</h3><div class="sbox">`+(pins.length?pins.map(x=>`<div class="srow"><span class="l">#${x.number} ${esc(x.title)}</span><button class="b" data-s="unpin" data-id="${x.number}">открепить</button></div>`).join(""):'<div class="srow hint">Ничего не закреплено — клавиша f у сессии.</div>')
+      +(Array.isArray(P.pins)?`<div class="srow"><span class="l hint">По умолчанию закреплены дирижёр и помощник</span><button class="b" data-s="pins0">вернуть</button></div>`:"")+`</div>`}
+  else if(setSec==="phone"){const st=PUSH;
+    h+=`<h3>Уведомления на телефон</h3><div class="sbox">
+      <div class="srow"><span class="l">На этом устройстве <span class="hint">· ${esc(pushState())}</span></span>${pushOK()?`<button class="b${st.on?"":" pri"}" data-s="push" data-v="${st.on?"off":"on"}">${st.on?"Выключить":"Включить"}</button>`:""}</div>
+      <div class="srow"><span class="l">Подписано устройств <span class="hint">· придут сюда: разрешения, меню, вопросы агентов, «нужен ты» от дирижёра и помощника</span></span><span>${st.subs??"—"}</span></div>
+      <div class="srow"><span class="l">Проверка</span><button class="b" data-s="pushtest"${st.subs?"":" disabled"}>Прислать тестовое</button></div></div>
+      <h3>Как поставить на iPhone</h3><div class="sbox" style="padding:12px 14px;line-height:1.55">
+      <ol style="margin:0;padding-left:20px">
+        <li>На Маке один раз: <code>tailscale serve --bg 8787</code> — Squad станет доступен по HTTPS на адресе Мака в tailnet (без HTTPS iPhone не даёт уведомления).</li>
+        <li>На iPhone (в той же сети Tailscale) открой в Safari ссылку вида <code>https://&lt;имя-мака&gt;.&lt;tailnet&gt;.ts.net/?key=…</code> — ключ из <code>cs web</code>.</li>
+        <li>«Поделиться» → «На экран Домой». Открой «Оркестр» с экрана Домой, сюда, в «Телефон», и нажми «Включить».</li>
+      </ol><p class="hint" style="margin:8px 0 0">Терминал Мака — вкладка «Терминал Мака» (t). Мак должен быть включён и не спать: «Настройки» → «Экран блокировки»/«Энергия» → не переходить в сон при подключённом питании.</p></div>`;
+    if(!st.loaded)pushLoad().then(()=>{if(setOpen()&&setSec==="phone")drawSettings()})}
+  else if(setSec==="upd"){const u=UPDI;
+    h+=`<h3>Обновления в тестировании</h3><div class="sbox">`+(u?`<div class="srow"><span class="l">Модули</span><span>${(u.modules||[]).map(esc).join(", ")||"—"}</span></div><div class="srow"><span class="l">Чат «в тест»</span><span>${esc(u.chat||"—")}</span></div><div class="srow"><span class="l">Последняя проверка</span><span>${esc(u.scan_at||"ещё не было")}</span></div>`:'<div class="srow hint">Загружаю…</div>')+`</div>
+      <p class="hint">Меняются в <code>~/.claude-squad/config.json</code>: <code>updates_modules</code>, <code>updates_chat</code>, <code>updates_model</code> (по умолчанию sonnet). Модуль можно добавить и прямо в панели «Обновления».</p>`;
+    if(!u)fetch("/api/updates").then(r=>r.json()).then(d=>{UPDI=d;if(setOpen()&&setSec==="upd")drawSettings()}).catch(()=>{})}
+  h+=`<div class="sfoot"><button class="b" data-s="reset">Сбросить вид (заметки останутся)</button></div></main></div>`;
   $("setin").innerHTML=h}
 const setOpen=()=>$("set").style.display==="flex";
 function openSettings(){drawSettings();$("set").style.display="flex"}
@@ -602,6 +1280,14 @@ function closeSettings(){$("set").style.display="none"}
 $("set").addEventListener("click",e=>{if(e.target.id==="set"){closeSettings();return}
   const b=e.target.closest("[data-s]");if(!b||b.disabled)return;const s=b.dataset.s,id=b.dataset.id,d=+b.dataset.d;
   const mv=arr=>{const i=arr.indexOf(id),j=i+d;if(i>=0&&j>=0&&j<arr.length)arr.splice(j,0,arr.splice(i,1)[0]);return arr};
+  if(s==="close"){closeSettings();return}
+  if(s==="sec"){setSec=id;drawSettings();return}
+  if(s==="push"){(b.dataset.v==="on"?pushOn():pushOff()).then(drawSettings);return}
+  if(s==="pushtest"){api("/api/push/test",{}).then(ok=>ok&&toast("Отправлено — должно прийти через пару секунд"));return}
+  if(s==="board"){P.board={...bopt(),[id]:!bopt()[id]};savePrefs();drawSettings();if(curView()==="ov")drawBoard();return}
+  if(s==="bview"){P.board={...bopt(),view:b.dataset.v};savePrefs();drawSettings();if(curView()==="ov")drawBoard();return}
+  if(s==="bext"){P.board={...bopt(),ext:b.dataset.v};savePrefs();drawSettings();if(curView()==="ov")drawBoard();return}
+  if(s==="band"){P.band={...band(),[id]:!band()[id]};savePrefs();drawSettings();if(curView()==="ov")drawBoard();return}
   if(s==="side")P.side=b.dataset.v;
   else if(s==="sidew0")delete P.sidew;
   else if(s==="tab"){const t=tabsList(),x=t.find(v=>v.id===id);x.on=!x.on;P.tabs=t;if(!x.on&&curView()===id)setView("list")}
@@ -637,6 +1323,7 @@ document.addEventListener("click",e=>{
   const tb=e.target.closest("[data-tab]");if(tb){setView(tb.dataset.tab);return}
   const fh=e.target.closest("[data-fh]");if(fh){feedH=+fh.dataset.fh;loadFeed();return}
   const pn=e.target.closest("[data-pin]");if(pn){e.stopPropagation();togglePin(byNum(+pn.dataset.pin));return}
+  if(e.target.closest("[data-zz]")){P.sleepOpen=!P.sleepOpen;savePrefs();render();return}
   const gh=e.target.closest("[data-gh]");if(gh&&!e.target.closest("[data-n],[data-g]")){const g=gh.dataset.gh;P.collapsed={...(P.collapsed||{})};if(P.collapsed[g])delete P.collapsed[g];else P.collapsed[g]=true;savePrefs();render()}
 },true);
 
@@ -658,6 +1345,7 @@ document.addEventListener("mousedown",e=>{if(typing&&!e.target.closest("#termwra
 document.addEventListener("keydown",e=>{
   if([$("msg"),$("gnew"),$("fq"),$("note")].includes(document.activeElement))return;
   if(setOpen()){if(e.key==="Escape"||e.code==="Comma"){e.preventDefault();closeSettings()}return}
+  if(updOpen()){if(e.key==="Escape"){e.preventDefault();closeUpd()}return}
   if(pickOpen()){const o=pickOpts(),k=e.key;
     if(k.length===1&&!/^Digit[1-9]$/.test(e.code||"")&&!["j","k"].includes(hk(e))){$("gnew").focus();return} // typing a new group name
     e.preventDefault();
@@ -675,18 +1363,18 @@ document.addEventListener("keydown",e=>{
   const k=hk(e);
   if($("help").style.display==="flex"){$("help").style.display="none";e.preventDefault();return}
   if(k==="?"){$("help").style.display="flex";return}
-  if(k==="t"){toggleTheme();return}
   if(k==="z"&&lastMove){const m=lastMove;lastMove=null;api("/api/group",{n:m.n,group:m.prev}).then(ok=>ok&&(toast("Отменено"),load()));return}
   if((k==="c"||k==="g")&&!qOpen()){const n=inOv()?gsel:sel,x=byNum(n);if(!x)return;
     if(k==="c")api("/api/color",{n}).then(ok=>ok&&load());
     else if(!x.conductor&&!x.assistant)openPick(n);
     return}
-  if(k==="p"){api("/api/pet/next",{}).then(()=>loadPet(true));return}
   if(e.code==="Comma"&&!e.shiftKey){e.preventDefault();openSettings();return}
   if(e.code==="Slash"&&!e.shiftKey&&!qOpen()){e.preventDefault();if(curView()==="ov"||curView()==="lim")setView("list");$("fq").focus();$("fq").select();return}
   if(k==="f"&&!qOpen()){togglePin(byNum(inOv()?gsel:sel));return}
   if(k==="w"&&!qOpen()){setView(curView()==="feed"?"list":"feed");return}
   if(k==="d"&&!qOpen()){setView(curView()==="lim"?"list":"lim");return}
+  if(k==="s"&&!qOpen()&&!e.metaKey&&!e.ctrlKey){setView(curView()==="stat"?"list":"stat");return}
+  if(k==="t"&&!qOpen()&&!e.metaKey&&!e.ctrlKey){e.preventDefault();setView(curView()==="mac"?"list":"mac");if(curView()==="mac")setTimeout(()=>$("min").focus(),50);return}
   if(qOpen()){
     const q=S.queue||[];
     if(k==="Escape"||k==="u"){closeQueue();return}
@@ -698,92 +1386,103 @@ document.addEventListener("keydown",e=>{
     if(k==="y"&&it.permission){if(confirm("Разрешить один раз?"))api("/api/approve",{n:it.number}).then(ok=>ok&&toast("Разрешено"));return}
     return}
   if(k==="u"){openQueue();return}
-  if(curView()==="feed"||curView()==="lim"){if(k==="Escape"||k==="v"){setView(k==="v"?"ov":"list")}return}
+  if(curView()==="mac"){if(k==="Escape")setView("list");return}
+  if(curView()==="feed"||curView()==="lim"||curView()==="stat"){if(k==="Escape"||k==="v"){setView(k==="v"?"ov":"list")}return}
   if(inOv()){
     const dir={ArrowLeft:"left",ArrowRight:"right",ArrowUp:"up",ArrowDown:"down",h:"left",l:"right",k:"up",j:"down"}[k];
-    if(dir){e.preventDefault();gmove(dir);return}
-    if(k==="Enter"){e.preventDefault();const x=byNum(gsel);if(x&&x.paused)wake(gsel);else openSession(gsel,true);return}
-    if(k==="v"||k==="Escape"){setView("list");return}
+    if(dir){e.preventDefault();gmove(dir);if(peekN)openPeek(gsel);return}
+    if(k===" "){e.preventDefault();if(peekN)closePeek();else openPeek(gsel);return}
+    if(k==="Enter"){e.preventDefault();const x=byNum(gsel);closePeek();if(x&&x.paused)wake(gsel);else openSession(gsel,true);return}
+    if(k==="Escape"&&peekN){closePeek();return}
+    if(k==="v"||k==="Escape"){closePeek();setView("list");return}
     if(k==="i"){openSession(gsel);$("msg").focus();e.preventDefault();return}
     if(k==="r"){const x=byNum(gsel);if(x&&x.paused)wake(gsel);return}
     return}
   const o=ordered().all,i=o.findIndex(x=>x.number===sel);
   if(k==="ArrowDown"||k==="j"){e.preventDefault();o[i+1]&&select(o[i+1].number);return}
   if(k==="ArrowUp"||k==="k"){e.preventDefault();o[i-1]&&select(o[i-1].number);return}
-  if(k==="Enter"){e.preventDefault();const x=byNum(sel);if(x&&x.paused)wake(sel);else{document.body.classList.add("open");setTyping(true)}return}
+  if(k==="Enter"){e.preventDefault();const x=byNum(sel);if(x&&x.paused)wake(sel);else{document.body.classList.add("open");replyNow()}return}
   if(k==="i"){e.preventDefault();document.body.classList.add("open");$("msg").focus();return}
   if(k==="r"){const x=byNum(sel);if(x&&x.paused)wake(sel);return}
   if(k==="v"){setView("ov");return}
   if(k==="Escape"){document.body.classList.remove("open");return}
 });
-$("scr").addEventListener("paste",e=>{if(!sel)return;e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text");if(t)sendKeys("\x1b[200~"+t.replace(/\r\n/g,"\n")+"\x1b[201~")});
+/* attachments: the file goes to the session's folder, its path into the message */
+async function uploadFiles(files,to){const n=to||sel,paths=[];if(!n||!files||!files.length)return paths;
+  for(const f of files){toast("Прикрепляю «"+(f.name||"скриншот")+"»…");const fd=new FormData();fd.append("n",n);fd.append("file",f,f.name||"screenshot.png");
+    try{const r=await fetch("/api/upload",{method:"POST",headers:{"X-Squad-Key":KEY},body:fd});if(!r.ok){toast(await r.text(),true);continue}paths.push((await r.json()).path)}catch(e){toast("Не удалось прикрепить файл",true)}}
+  if(paths.length)toast(paths.length>1?"Прикреплено: "+paths.length:"Прикреплено");return paths}
+const qpath=p=>/[\s'"]/.test(p)?"'"+p.replace(/'/g,"'\\''")+"'":p;
+async function attachToMsg(files){const ps=await uploadFiles(files);if(!ps.length)return;const m=$("msg"),add=ps.map(qpath).join(" ")+" ";
+  const a=m.selectionStart??m.value.length,b=m.selectionEnd??m.value.length;const pre=m.value.slice(0,a);m.value=pre+(pre&&!/\s$/.test(pre)?" ":"")+add+m.value.slice(b);document.body.classList.add("open");m.focus()}
+async function attachToSession(files){const ps=await uploadFiles(files);if(ps.length)sendKeys("\x1b[200~"+ps.map(qpath).join(" ")+" \x1b[201~")}
+const clipFiles=e=>[...((e.clipboardData||{}).files||[])];
+$("scr").addEventListener("paste",e=>{if(!sel)return;e.preventDefault();const fs=clipFiles(e);if(fs.length){attachToSession(fs);return}
+  const t=(e.clipboardData||window.clipboardData).getData("text");if(t)sendKeys("\x1b[200~"+t.replace(/\r\n/g,"\n")+"\x1b[201~")});
+$("msg").addEventListener("paste",e=>{const fs=clipFiles(e);if(fs.length){e.preventDefault();attachToMsg(fs)}});
+$("attach").onclick=()=>$("fileIn").click();
+$("fileIn").addEventListener("change",()=>{const fs=[...$("fileIn").files];$("fileIn").value="";if(typing)attachToSession(fs);else attachToMsg(fs)});
+const hasFiles=e=>e.dataTransfer&&[...(e.dataTransfer.types||[])].includes("Files");
+let fdT=0;
+document.addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();if(e.target.closest&&e.target.closest("#pane")){document.body.classList.add("filedrag");clearTimeout(fdT);fdT=setTimeout(()=>document.body.classList.remove("filedrag"),300)}});
+document.addEventListener("dragover",e=>{if(!hasFiles(e)||!(e.target.closest&&e.target.closest("#peek"))||!peekN)return;e.preventDefault();$("peek").classList.add("pdrop");clearTimeout(fdT);fdT=setTimeout(()=>$("peek").classList.remove("pdrop"),300)});
+document.addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();document.body.classList.remove("filedrag");$("peek").classList.remove("pdrop");
+  if(e.target.closest&&e.target.closest("#peek")&&peekN){peekAttach([...e.dataTransfer.files]);return}
+  if(!(e.target.closest&&e.target.closest("#pane")))return;const fs=[...e.dataTransfer.files];if(typing)attachToSession(fs);else attachToMsg(fs)},true);
 $("back").onclick=()=>{document.body.classList.remove("open");setTyping(false)};
 $("zm").onclick=()=>{zoom--;fit()};$("zp").onclick=()=>{zoom++;fit()};
+// the font follows the terminal's real width: after a reload the first frame came before the
+// layout had a width, the font fell to its minimum and stayed tiny until A+ was pressed
+if(window.ResizeObserver)new ResizeObserver(()=>{if($("termwrap").clientWidth>40)fit()}).observe($("termwrap"));
 $("setb").onclick=openSettings;
 $("qpill").onclick=()=>qOpen()?closeQueue():openQueue();
-$("theme").onclick=toggleTheme;applyTheme(THEME);
+
+
+/* обновления в тестировании */
+let UPD={items:[]},updSel="",updT=0;
+const updOpen=()=>$("upd").style.display==="flex";
+async function updLoad(){try{const r=await fetch("/api/updates");if(!r.ok)return;UPD=await r.json()}catch(e){return}updDraw();
+  clearTimeout(updT);if(updOpen()&&UPD.items.some(x=>x.status==="queued"||x.status==="running"))updT=setTimeout(updLoad,4000)}
+function updDraw(){
+  $("updmeta").innerHTML=(UPD.scan_at?"список от "+esc(UPD.scan_at):"список ещё не собирался")+(UPD.chat_err?' · <span class="err">'+esc(UPD.chat_err)+'</span>':"");
+  const L=UPD.items||[];
+  $("updlist").innerHTML=L.length?L.map(x=>{
+    let st=x.status==="queued"?"в очереди":x.status==="running"?"разбирается… (1–3 мин)":x.status==="error"?'<span class="err">'+esc(x.err)+'</span>':x.done_at?"разобрано "+esc(x.done_at):"не разобрано";
+    if(x.new&&x.status!=="running")st+=' · <span class="u-new">+'+x.new+' новых</span>';
+    if(x.closed)st+=" · вышло";else if(x.gone)st+=" · ветки нет";
+    const busy=x.status==="queued"||x.status==="running";
+    const btn=busy?"":(!x.digest?'<button class="b pri" data-ud="'+esc(x.key)+'">Разобрать</button>':x.new?'<button class="b pri" data-ud="'+esc(x.key)+'">Дополнить</button>':"");
+    return '<div class="u-row'+(x.key===updSel?" on":"")+'" data-uk="'+esc(x.key)+'"><span class="u-name">'+esc(x.module+" "+x.version)+'</span>'+
+      (x.in_test?'<span class="u-tag" title="'+esc((x.test_at?x.test_at+" — ":"")+(x.test_note||""))+'">в тесте</span>':"")+
+      '<span class="u-st">'+st+'</span>'+btn+(x.digest?'<button class="b" data-uv="'+esc(x.key)+'">Открыть</button>':"")+'</div>'}).join("")
+    :'<div class="u-empty">Пока пусто — нажми «Обновить список» или добавь обновление вручную.</div>'}
+async function updView(k){updSel=k;updDraw();$("updview").innerHTML='<div class="u-empty">Загружаю…</div>';
+  try{const r=await fetch("/api/updates/view?k="+encodeURIComponent(k));$("updview").innerHTML=r.ok?await r.text():'<div class="u-empty">'+esc(await r.text())+'</div>'}catch(e){}
+  $("updview").querySelectorAll(".t-tbl").forEach(t=>{if(!t.parentElement.classList.contains("t-tblw")){const w=document.createElement("div");w.className="t-tblw";t.replaceWith(w);w.appendChild(t)}})}
+function openUpd(){$("upd").style.display="flex";updLoad();if(updSel)updView(updSel)}
+function closeUpd(){$("upd").style.display="none";clearTimeout(updT)}
+$("updb").onclick=openUpd;$("updx").onclick=closeUpd;
+$("upd").addEventListener("click",async e=>{const t=e.target;if(t.id==="upd"){closeUpd();return}
+  if(t.dataset.ud){if(await api("/api/updates/do",{do:"digest",k:t.dataset.ud})){toast("Поставил в очередь разбора");updLoad()}return}
+  if(t.dataset.uv){updView(t.dataset.uv);return}
+  const row=t.closest(".u-row");if(row&&!t.closest("button")){const x=(UPD.items||[]).find(i=>i.key===row.dataset.uk);if(x&&x.digest)updView(x.key)}});
+$("updscan").onclick=async()=>{if(await api("/api/updates/do",{do:"scan"})){toast("Обновляю: git fetch и чат — до минуты");setTimeout(updLoad,8000);setTimeout(updLoad,30000)}};
+async function updAdd(){const m=$("updin").value.trim().match(/^([a-z0-9_]+)[\s\/]+(\d+(?:\.\d+)+)$/i);if(!m){toast("Формат: im 26.1700.0",true);return}
+  if(await api("/api/updates/do",{do:"add",module:m[1],version:m[2]})){$("updin").value="";toast("Добавил, ищу ветку…");setTimeout(updLoad,1500);setTimeout(updLoad,20000)}}
+$("updgo").onclick=updAdd;
+$("updin").addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();updAdd()}if(e.key==="Escape"){e.preventDefault();$("updin").blur()}});
 $("helpb").onclick=()=>$("help").style.display="flex";$("help").onclick=()=>$("help").style.display="none";
 window.addEventListener("resize",fit);
 async function sendMsg(){const v=$("msg").value.trim();if(!v||!sel)return;$("msg").value="";$("msg").blur();toast("Отправляю…");
-  if(await api("/api/send",{n:sel,text:v}))toast("Отправлено");else if(!$("msg").value)$("msg").value=v}
+  const n=sel,pend={n,text:v,at:new Date().toTimeString().slice(0,5)};if(chatOn()){chatPend.push(pend);chatPendDraw(true)}
+  if(await api("/api/send",{n,text:v}))toast("Отправлено");else{chatPend=chatPend.filter(p=>p!==pend);chatPendDraw();if(!$("msg").value)$("msg").value=v}}
 $("send").onclick=sendMsg;
 $("msg").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMsg();return}
   if(e.key==="Escape"||((e.key==="ArrowUp"||e.key==="ArrowDown")&&!$("msg").value)){e.preventDefault();$("msg").blur()}});
 $("msg").addEventListener("focus",()=>$("msg").placeholder="Enter — отправить и вернуться к списку · Esc — назад");$("msg").addEventListener("blur",()=>$("msg").placeholder="Сообщение… (i)");
 
-/* ---------------- pets: walk along the bottom of the window ---------------- */
-let PET=null,pets=[];
-// Two-tone colors per pet (top → bottom), dark and light theme.
-const PCOL={tyan:{d:["#ff7eb6","#ffc2dc"],l:["#c2366f","#e0739f"]},os:{d:["#8fb2ff","#d4e0ff"],l:["#3559b0","#6f8fd6"]},
-  dog:{d:["#ffb347","#ffe0a3"],l:["#a8650b","#d49a3f"]},cat:{d:["#b69bff","#e2d6ff"],l:["#6b46c8","#9b7fe6"]}};
-async function loadPet(force){try{const r=await fetch("/api/pet",{cache:"no-store"});const d=await r.json();
-  const sig=JSON.stringify(d.pet&&d.pet.pets.map(p=>p.kind+p.mood));const changed=force||!PET||sig!==PET.sig;PET={...d,sig};if(changed)buildPets();else pets.forEach((x,i)=>{if(d.pet&&d.pet.pets[i])x.data=d.pet.pets[i]});petCaption()}catch(e){}}
-function petCaption(){const c=$("petcap");const p=PET&&PET.pet;$("petbar").classList.toggle("off",!p);if(!p){c.innerHTML=PET?`<button id="pn">питомец выключен · p</button>`:"";return}
-  c.innerHTML=p.caption.map(esc).join("<br>")+(p.warn?`<br><span class="w">${esc(p.warn)}</span>`:"")+`<br><button id="pn">${esc(PET.name||"")} · p — сменить</button>`}
-document.addEventListener("click",e=>{if(e.target.id==="pn")api("/api/pet/next",{}).then(()=>loadPet(true))});
-const DOT=[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[0,3],[1,3]],PX=2; // whole pixels: dots stay crisp
-// size: the biggest frame of all (standing, walking, both directions), so the
-// canvas never changes size and the pet never jumps between frames.
-function petSize(d){let w=0,h=0;for(const set of[d.stand,d.walk||[],d.stand_l,d.walk_l||[]])for(const f of set){h=Math.max(h,f.length);for(const r of f)w=Math.max(w,[...r].length)}return{w:w*2,h:h*4}}
-function buildPets(){
-  const box=$("pets");box.innerHTML="";pets=[];const p=PET&&PET.pet;if(!p)return;const n=p.pets.length;
-  p.pets.forEach((d,i)=>{const el=document.createElement("div");el.className="pet";el.innerHTML=`<div class="say${d.alert?" alert":""}"></div><canvas></canvas>`;box.appendChild(el);
-    const sz=petSize(d),cv=el.querySelector("canvas"),dpr=window.devicePixelRatio||1;cv.width=Math.ceil(sz.w*PX*dpr);cv.height=Math.ceil(sz.h*PX*dpr);cv.style.width=sz.w*PX+"px";cv.style.height=sz.h*PX+"px";
-    cv.addEventListener("click",()=>poke(i));
-    pets.push({el,cv,sz,data:d,lane:[i/n,(i+1)/n],x:.2+Math.random()*.6,dir:Math.random()<.5?-1:1,moving:false,until:0,hop:0,sayUntil:0,last:performance.now(),frameKey:""})});
-}
-function poke(i){const p=pets[i];if(!p)return;p.hop=performance.now();p.sayUntil=Date.now()+4000;p.forceSay=true}
-function drawPet(p,rows,lift){
-  const c=p.cv.getContext("2d"),dpr=window.devicePixelRatio||1,W=p.sz.w*PX,H=p.sz.h*PX;c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
-  const light=document.documentElement.dataset.theme==="light",col=(PCOL[p.data.kind]||PCOL.tyan)[light?"l":"d"];
-  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,col[0]);g.addColorStop(1,col[1]);c.fillStyle=g;
-  const fw=Math.max(...rows.map(r=>[...r].length))*2,ox=Math.floor((p.sz.w-fw)/2),oy=p.sz.h-rows.length*4; // centred, feet on the ground
-  rows.forEach((r,y)=>[...r].forEach((ch,x)=>{const b=ch.codePointAt(0)-0x2800;if(b<=0||b>255)return;for(let k=0;k<8;k++)if(b&(1<<k)){const[dx,dy]=DOT[k];c.fillRect((ox+x*2+dx)*PX,(oy+y*4+dy)*PX-Math.round(lift),PX-.35,PX-.35)}}));
-}
-function petFrame(now){
-  const P=PET&&PET.pet;if(P&&pets.length){
-    const box=$("pets"),W=box.clientWidth,t=performance.now(),clock=Date.now();
-    pets.forEach((p,i)=>{const d=p.data,dt=Math.min(.1,(t-p.last)/1000);p.last=t;
-      if(clock>p.until){p.moving=!p.moving;p.until=clock+(p.moving?2500+Math.random()*4500:1800+Math.random()*3500);if(Math.random()<.35)p.dir*=-1;
-        if(!p.moving&&d.mood>=7&&Math.random()<.5)p.hop=t;} // happy pets hop now and then
-      const lo=p.lane[0]*W+10,hi=Math.max(lo+40,p.lane[1]*W-p.sz.w*PX-10);
-      const fiNow=Math.floor(clock/200);
-      if(p.moving&&fiNow!==p.lastStep){p.lastStep=fiNow;let px=lo+(hi-lo)*p.x+p.dir*7;if(px<=lo){px=lo;p.dir=1}if(px>=hi){px=hi;p.dir=-1}p.x=(px-lo)/Math.max(1,hi-lo)} // a step per frame: walks, does not glide
-      const L=p.dir<0,walk=L?d.walk_l:d.walk,stand=L?d.stand_l:d.stand;
-      const frames=p.moving&&walk&&walk.length?walk:stand,fi=Math.floor(clock/(p.moving?200:650))%frames.length;
-      let lift=p.moving?(fi%2?1:0):0;const hp=(t-p.hop)/550;if(hp>=0&&hp<1)lift+=Math.sin(hp*Math.PI)*12;
-      const key=(L?"l":"r")+(p.moving?"w":"s")+fi+"|"+lift.toFixed(1)+"|"+(document.documentElement.dataset.theme||"");
-      if(key!==p.frameKey){p.frameKey=key;drawPet(p,frames[fi],lift)}
-      p.el.style.transform=`translateX(${Math.round(lo+(hi-lo)*p.x)}px)`;p.el.classList.toggle("flip",lo+(hi-lo)*p.x>W*.62);
-      const say=p.el.querySelector(".say"),turn=Math.floor(clock/9000)%pets.length===i&&Math.floor(clock/4500)%2===0;
-      const show=d.phrase&&(turn||clock<p.sayUntil);say.style.display=show?"block":"none";if(show&&say._t!==d.phrase){say._t=d.phrase;say.textContent=d.speaker+": «"+d.phrase+"»"}});
-  }
-  requestAnimationFrame(petFrame);
-}
-requestAnimationFrame(petFrame);
-
-(async()=>{const r=await fetch("/api/key");if(r.ok)KEY=(await r.json()).key;if(location.search.includes("key="))history.replaceState(null,"","/");await loadPrefs();await load();loadPet();
-  setInterval(load,2500);setInterval(loadPet,15000);setInterval(()=>{if(curView()==="feed"&&Date.now()-feedAt>10000)loadFeed()},3000);
+(async()=>{const r=await fetch("/api/key");if(r.ok)KEY=(await r.json()).key;const openN=+(new URLSearchParams(location.search).get("open")||0);if(location.search.includes("key=")||openN)history.replaceState(null,"","/");swReg();setTimeout(()=>{if(openN&&byNum(openN))openSession(openN,false)},1500);await loadPrefs();await load();
+  setInterval(load,2500);setInterval(()=>{if(curView()==="feed"&&Date.now()-feedAt>10000)loadFeed()},3000);
   window.addEventListener("focus",loadPrefs)})();
 </script>
 </body>

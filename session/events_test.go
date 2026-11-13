@@ -33,6 +33,8 @@ func TestComputeStatsAndEventLog(t *testing.T) {
 }
 
 func TestComputeCapacity(t *testing.T) {
+	defer func(f func(string) float64) { diskFree = f }(diskFree)
+	diskFree = func(string) float64 { return 500 }
 	snap := &StatusSnapshot{Sessions: []StatusEntry{
 		{Title: "c", Conductor: true}, {Title: "a", Assistant: true},
 		{Title: "w1", Status: "в работе"}, {Title: "w2", Status: "ждёт тебя"}, {Title: "s", Status: "спит"},

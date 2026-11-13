@@ -19,6 +19,11 @@ func TestWhoseTurn(t *testing.T) {
 		t.Fatalf("conductor on: %q", got)
 	}
 	w.IdleSince = time.Now().Add(-ConductorGiveUp - time.Minute)
+	if got := label(w); got != "ждёт дирижёра" {
+		t.Fatalf("time alone (the conductor did not get to it — asleep, busy, the Mac slept): %q", got)
+	}
+	ConductorTurns = w.IdleTurn + 2
+	defer func() { ConductorTurns = 0 }()
 	if got := label(w); got != "ждёт тебя · дирижёр не разобрал" {
 		t.Fatalf("not handled: %q", got)
 	}

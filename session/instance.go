@@ -74,6 +74,8 @@ type Instance struct {
 	RecapStale bool
 	// NetworkIssue is true when the screen shows network/VPN errors (runtime only).
 	NetworkIssue bool
+	// IdleTurn: ConductorTurns when the agent last worked (runtime only).
+	IdleTurn uint64
 	// Interrupted is true when the agent was stopped mid-task (Esc) (runtime only).
 	Interrupted bool
 	// turnSig, turnNetIssue, turnMCPIssue describe the current turn (runtime only).
@@ -542,6 +544,7 @@ func (i *Instance) SetPreviewSize(width, height int) error {
 		return fmt.Errorf("cannot set preview size for instance that has not been started or " +
 			"is paused")
 	}
+	tmux.RememberSize(width, height)
 	return i.tmuxSession.SetDetachedSize(width, height)
 }
 
@@ -766,7 +769,15 @@ func (i *Instance) RestartAgent() error {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-	return i.Resume()
+	// A new tmux session can die at birth (the old one still going away, the agent
+	// exiting on start): one more try a moment later instead of leaving it asleep.
+	err := i.Resume()
+	if err != nil && i.Status == Paused {
+		log.WarningLog.Printf("restart %q: %v — trying once more", i.Title, err)
+		time.Sleep(1500 * time.Millisecond)
+		err = i.Resume()
+	}
+	return err
 }
 
 // ReleaseDeadSession frees the handle to a tmux session that no longer exists.
@@ -947,46 +958,40 @@ func (i *Instance) SendPrompt(prompt string) error {
 	if err := i.tmuxSession.SendKeys(prompt); err != nil {
 		return fmt.Errorf("error sending keys to tmux session: %w", err)
 	}
-
+	box := func() string {
+		content, err := i.tmuxSession.CapturePaneContent()
+		if err != nil {
+			return ""
+		}
+		return InputBoxText(content)
+	}
+	inBox := func(b string) bool { return BoxHas(b, prompt) || boxHoldsPaste(b) }
 	// Wait until the text is in the input box before pressing Enter: right after a
 	// start Claude Code can show it a few seconds late, and an Enter pressed before
-	// that is lost (the text then sits in the box unsent).
+	// that is lost. Judged by the text itself: an unfocused session draws it dim.
 	typed := false
 	for k := 0; k < 40 && !typed; k++ { // up to 6 s
 		time.Sleep(150 * time.Millisecond)
-		if content, err := i.tmuxSession.CapturePaneContent(); err == nil && extractDraft(content) != "" {
-			typed = true
-		}
+		typed = inBox(box())
 	}
-	_ = typed // not shown in 6 s: press Enter anyway and watch the box below
-	if err := i.tmuxSession.TapEnter(); err != nil {
-		return fmt.Errorf("error tapping enter: %w", err)
-	}
-	// Claude Code sometimes swallows the Enter (still starting, busy redrawing):
-	// if the text is still in the box, press Enter once more.
-	for attempt := 0; attempt < 2; attempt++ {
-		// Watch the box for 2 s, not only the first moment: text that shows up late
-		// (after the Enter) would otherwise stay there unsent.
-		left := ""
-		for k := 0; k < 8; k++ {
-			time.Sleep(250 * time.Millisecond)
-			content, err := i.tmuxSession.CapturePaneContent()
-			if err != nil {
-				return nil
-			}
-			left = extractDraft(content)
-		}
-		if left == "" {
-			return nil
-		}
-		if attempt == 1 {
-			return fmt.Errorf("«%s»: текст остался в поле ввода, Enter не сработал", i.Title)
-		}
+	_ = typed // not seen in 6 s (an agent that shows input elsewhere): press Enter anyway
+	// Press Enter and make sure the text left the box (and stays gone: Claude Code
+	// may still be redrawing). It sometimes swallows the Enter while starting.
+	for attempt := 0; attempt < 3; attempt++ {
 		if err := i.tmuxSession.TapEnter(); err != nil {
 			return fmt.Errorf("error tapping enter: %w", err)
 		}
+		for k := 0; k < 12; k++ { // up to 3 s
+			time.Sleep(250 * time.Millisecond)
+			if !inBox(box()) {
+				time.Sleep(600 * time.Millisecond)
+				if !inBox(box()) {
+					return nil
+				}
+			}
+		}
 	}
-	return nil
+	return fmt.Errorf("«%s»: текст остался в поле ввода, Enter не сработал", i.Title)
 }
 
 // PreviewFullHistory captures the entire tmux pane output including full scrollback history
