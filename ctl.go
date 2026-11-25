@@ -34,8 +34,19 @@ var (
 	ctlNewProg   string
 	ctlNewCond   bool
 	ctlNewAsst   bool
+	ctlUser      bool
 	ctlWait      int
 )
+
+// userAtTerminal is the person at the keyboard. A session's command has no
+// terminal on stdin, so it cannot pass --user.
+func userAtTerminal() bool {
+	if !ctlUser {
+		return false
+	}
+	fi, err := os.Stdin.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
 
 func loadSnapshot() (*session.StatusSnapshot, error) {
 	snap, err := session.ReadStatusSnapshot()
@@ -282,8 +293,8 @@ func checkProgram(p string) error {
 		return fmt.Errorf("--program: только путь к программе и флаги, без символов оболочки")
 	}
 	f := strings.Fields(p)
-	if base := strings.ToLower(filepath.Base(f[0])); !strings.HasPrefix(base, "claude") && !strings.HasPrefix(base, "codex") {
-		return fmt.Errorf("--program: воркер запускается только как claude/codex (а не «%s»)", f[0])
+	if base := strings.ToLower(filepath.Base(f[0])); !strings.HasPrefix(base, "claude") && !strings.HasPrefix(base, "codex") && !strings.HasPrefix(base, "grok") {
+		return fmt.Errorf("--program: воркер запускается только как claude, codex или grok (а не «%s»)", f[0])
 	}
 	low := strings.ToLower(p)
 	for _, bad := range []string{"dangerously", "bypass", "skip-permissions", "--permission-mode", "acceptedits", "--allowedtools", "--allowed-tools",
@@ -483,8 +494,42 @@ var ctlNewCmd = &cobra.Command{
 		if ctlNewCond || ctlNewAsst {
 			if snap, err := session.ReadStatusSnapshot(); err == nil {
 				for _, x := range snap.Sessions {
-					if (ctlNewCond && x.Conductor) || (ctlNewAsst && x.Assistant) {
+					if !((ctlNewCond && x.Conductor) || (ctlNewAsst && x.Assistant)) {
+						continue
+					}
+					if !userAtTerminal() {
 						return fmt.Errorf("дирижёр/помощник уже есть (#%d) — второй не открываю", x.Number)
+					}
+					start := time.Now()
+					if _, err := session.SubmitSessionRequest(session.SessionRequest{Title: x.Title, Kill: true, ByUser: true}); err != nil {
+						return err
+					}
+					if err := waitRequest(x.Title, start, 30*time.Second, "закрываю старую вкладку", "проверь cs ctl list"); err != nil {
+						return err
+					}
+					deadline := time.Now().Add(20 * time.Second)
+					for time.Now().Before(deadline) {
+						snap2, err2 := session.ReadStatusSnapshot()
+						if err2 != nil {
+							break
+						}
+						still := false
+						for _, y := range snap2.Sessions {
+							if y.Number == x.Number {
+								still = true
+							}
+						}
+						if !still {
+							break
+						}
+						time.Sleep(time.Second)
+					}
+					if snap2, err2 := session.ReadStatusSnapshot(); err2 == nil {
+						for _, y := range snap2.Sessions {
+							if y.Number == x.Number {
+								return fmt.Errorf("#%d ещё открыт. Перезапусти окно Squad и повтори команду с --user", x.Number)
+							}
+						}
 					}
 				}
 			}
@@ -535,11 +580,11 @@ var ctlKillCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if e.Conductor || e.Assistant {
+		if (e.Conductor || e.Assistant) && !userAtTerminal() {
 			return fmt.Errorf("#%d закрывает только пользователь", e.Number)
 		}
 		start := time.Now()
-		if _, err := session.SubmitSessionRequest(session.SessionRequest{Title: e.Title, Kill: true}); err != nil {
+		if _, err := session.SubmitSessionRequest(session.SessionRequest{Title: e.Title, Kill: true, ByUser: ctlUser}); err != nil {
 			return err
 		}
 		return waitRequest(e.Title, start, 30*time.Second, fmt.Sprintf("запрос принят: #%d %s будет закрыта", e.Number, e.Title),
@@ -754,6 +799,8 @@ func init() {
 	f.StringVar(&ctlNewProg, "program", "", "программа вместо claude по умолчанию")
 	f.BoolVar(&ctlNewCond, "conductor", false, "это дирижёр")
 	f.BoolVar(&ctlNewAsst, "assistant", false, "это помощник пользователя (дирижёр в него не пишет)")
+	f.BoolVar(&ctlUser, "user", false, "если дирижёр или помощник уже есть, сначала закрыть его; только из твоего терминала")
+	ctlKillCmd.Flags().BoolVar(&ctlUser, "user", false, "закрыть дирижёра или помощника; только из твоего терминала")
 	for _, c := range []*cobra.Command{ctlListCmd, ctlReadCmd, ctlSendCmd, ctlNewCmd, ctlKillCmd, ctlWakeCmd, ctlRestartCmd, ctlFocusCmd, ctlMarkCmd, ctlMRCmd, ctlGroupCmd} {
 		c.SilenceUsage = true
 		c.SilenceErrors = true

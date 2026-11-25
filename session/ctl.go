@@ -154,6 +154,9 @@ type SessionRequest struct {
 	Assistant bool   `json:"assistant,omitempty"`
 	// Kill closes the session with this title (folder and branch are kept).
 	Kill bool `json:"kill,omitempty"`
+	// ByUser is set by `cs ctl … --user` from a terminal. It may close the
+	// conductor or the assistant. An agent request leaves it false.
+	ByUser bool `json:"by_user,omitempty"`
 	// Wake starts a sleeping/paused session again (same conversation).
 	Wake bool `json:"wake,omitempty"`
 	// Restart restarts the agent with the same conversation (MCP reconnect).

@@ -824,28 +824,44 @@ func (m *home) applyRequests(reqs []session.SessionRequest) bool {
 		}
 		if req.Kill {
 			killed := false
+			blockedRole := false
+			inside := false
 			prev := m.list.GetSelectedInstance()
 			for _, inst := range m.list.GetInstances() {
-				if inst.Title == req.Title && !inst.Conductor && !inst.Assistant && inst != m.attached {
-					m.tabbedWindow.CleanupTerminalForInstance(inst.Title)
-					if err := m.storage.DeleteInstance(inst.Title); err != nil {
-						log.WarningLog.Printf("delete %q: %v", inst.Title, err)
-					}
-					m.list.SelectInstance(inst)
-					m.list.Kill()
-					if prev != nil && prev != inst {
-						m.list.SelectInstance(prev)
-					}
-					created = true
-					killed = true
+				if inst.Title != req.Title {
+					continue
+				}
+				if (inst.Conductor || inst.Assistant) && !req.ByUser {
+					blockedRole = true
 					break
 				}
+				if inst == m.attached && !req.ByUser {
+					inside = true
+					break
+				}
+				if inst == m.attached {
+					m.attached = nil
+				}
+				m.tabbedWindow.CleanupTerminalForInstance(inst.Title)
+				if err := m.storage.DeleteInstance(inst.Title); err != nil {
+					log.WarningLog.Printf("delete %q: %v", inst.Title, err)
+				}
+				m.list.SelectInstance(inst)
+				m.list.Kill()
+				if prev != nil && prev != inst {
+					m.list.SelectInstance(prev)
+				}
+				created = true
+				killed = true
+				break
 			}
 			switch {
 			case killed:
 				session.WriteCtlResult(req.Title, "ок, закрыта")
-			case m.attached != nil && m.attached.Title == req.Title:
+			case inside:
 				session.WriteCtlResult(req.Title, "ошибка: пользователь сейчас внутри этой сессии — не закрываю")
+			case blockedRole:
+				session.WriteCtlResult(req.Title, "ошибка: такой сессии нет (или это дирижёр/помощник)")
 			default:
 				session.WriteCtlResult(req.Title, "ошибка: такой сессии нет (или это дирижёр/помощник)")
 			}
