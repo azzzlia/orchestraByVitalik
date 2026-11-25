@@ -109,6 +109,16 @@ func abs(x int) int {
 // screen and returns its index in lines, or -1.
 var menuOptionRe = regexp.MustCompile(`^\s*\d+\.\s`)
 
+// boxDrawingOnly reports whether s is empty or only box bars and spaces.
+func boxDrawingOnly(s string) bool {
+	for _, r := range s {
+		if r != ' ' && r != '\t' && r != '│' && r != '|' {
+			return false
+		}
+	}
+	return true
+}
+
 func findInputLine(lines []string) int {
 	for n := len(lines) - 1; n >= 0 && n >= len(lines)-16; n-- {
 		idx := strings.Index(lines[n], "❯")
@@ -120,7 +130,9 @@ func findInputLine(lines []string) int {
 			}
 			continue
 		}
-		if strings.TrimSpace(StripANSI(lines[n][:idx])) != "" {
+		// Grok draws the prompt inside a box: "│ ❯ text │". A bar before ❯ is
+		// still the input line. Any other text before it is a quote or a menu.
+		if !boxDrawingOnly(StripANSI(lines[n][:idx])) {
 			continue
 		}
 		// "❯ 1. Yes" is the cursor of a choice menu (permission prompt), not the input box.

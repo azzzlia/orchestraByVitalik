@@ -69,6 +69,22 @@ func TestParseDensity(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestGrokBoxInputIsRecognised(t *testing.T) {
+	screen := "" +
+		"               Resume session                               ctrl+r\n" +
+		"  ╭────────────────────────────────────────╮\n" +
+		"  │ ❯                                        │\n" +
+		"  ╰─────────────────────── Grok 4.7 ─╯\n"
+	require.True(t, InputBoxVisible(screen))
+	require.Equal(t, "", ExtractDraft(screen))
+	typed := "" +
+		"  ╭────────────────────────────────────────╮\n" +
+		"  │ ❯ Ты дирижёр. Прочитай файл            │\n" +
+		"  ╰─────────────────────── Grok 4.7 ─╯\n"
+	require.True(t, InputBoxVisible(typed))
+	require.Equal(t, "Ты дирижёр. Прочитай файл", ExtractDraft(typed))
+}
+
 func TestOldBoxStyleInputIsRecognised(t *testing.T) {
 	screen := "╭────────────────╮\n│ > привет       │\n╰────────────────╯\n  ? for shortcuts\n"
 	require.True(t, InputBoxVisible(screen))
